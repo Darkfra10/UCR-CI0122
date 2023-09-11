@@ -7,6 +7,10 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <semaphore.h>
+#include <fcntl.h>           /* For O_* constants */
+#include <sys/stat.h>        /* For mode constants */
+#include <sys/wait.h>
+
 
 // Define the shared memory key and size
 const key_t SHM_KEY = 1234;
