@@ -1,4 +1,5 @@
 #include "Mailbox.hpp"
+#include "Message.hpp"
 
 #include <iostream>
 #include <cstring>
@@ -57,36 +58,6 @@ int Mailbox::getNumPendingMessages() {
     return messageInfo.msg_qnum;
 }
 
-
-// THIS WON'T WORK CAUSE THE MESSAGE QUEUE IS FIFO AND WE CAN'T GET THE NUMBER OF MESSAGES OF A GIVEN TYPE
-// WITHOUT REMOVING THEM FROM THE QUEUE
-/**
- * Get the number of pending messages for a given type
- * @param type Type of message to count
- * @return int Number of pending messages for the given type
-*/
-// int Mailbox::getNumPendingMessagesForType(int type) {
-//     struct msqid_ds messageInfo;
-//     int numMessages = 0;
-
-//     if (msgctl(this->mailbox_id, IPC_STAT, &messageInfo) == -1) {
-//         std::cerr << "Error getting message queue information: " << strerror(errno) << std::endl;
-//         return -1; // Return -1 to indicate an error
-//     }
-
-//     // Get the number of messages for the given type
-//     for (int i = 0; i < messageInfo.msg_qnum; i++) {
-//         msgbuf message;
-//         if (msgrcv(this->mailbox_id, &message, sizeof(message.mtext), type, IPC_NOWAIT) == -1) {
-//             // If there is an error, it means that there are no more messages of the given type
-//             break;
-//         }
-//         numMessages++;
-//     }
-
-//     return numMessages;
-// }
-
 /**
  * Send method
  * @param message Pointer to message structure to send it has to be a struct msgbuf with a type and a text
@@ -99,7 +70,7 @@ int Mailbox::send(const void *message) {
     // The argument msgp points to a user-defined buffer that must contain first a field of type long int that will specify the type of the message, and then a data portion that will hold the data bytes of the message
 
     // Get the idea from https://stackoverflow.com/questions/27995692/reinterpret-cast-casts-away-qualifiers
-    msgbuf* message_buffer = const_cast<msgbuf*>(reinterpret_cast<const msgbuf*>(message));
+    Message* message_buffer = const_cast<Message*>(reinterpret_cast<const Message*>(message));
 
     // validate the type of the message
     if (message_buffer->mtype < 0) {
@@ -134,7 +105,8 @@ int Mailbox::receive(void *message) {
     std::cout << "Receiving message(void *message)" << std::endl;
     int st = -1;
 
-    msgbuf* message_buffer = reinterpret_cast<msgbuf*>(message);
+    // msgbuf* message_buffer = reinterpret_cast<msgbuf*>(message);
+    Message* message_buffer = reinterpret_cast<Message*>(message);
     if (message_buffer == nullptr) {
         std::cerr << "Message buffer is null" << std::endl;
         exit(1);
@@ -150,7 +122,7 @@ int Mailbox::receive(void *message) {
         exit(1);
     }
 
-    st = msgrcv(this->mailbox_id, reinterpret_cast<msgbuf*>(message), sizeof(message_buffer->mtext), message_buffer->mtype, 0);
+    st = msgrcv(this->mailbox_id, reinterpret_cast<Message*>(message), sizeof(message_buffer->mtext), message_buffer->mtype, 0);
 
     if (st == -1) {
         std::cerr << "Error receiving message" << std::endl;

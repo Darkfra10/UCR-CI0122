@@ -26,18 +26,26 @@
 Car::Car(int id, int queueNumber) {
     this->id = id;
     this->queueNumber = queueNumber;
+    // if queueNumber / 10 is greater than 7 exit the program
+    if (queueNumber / 10 > 7) {
+        std::cerr << "Error: queueNumber / 10 is greater than 7" << std::endl;
+        exit(1);
+    }
 }
 
 // Destructor
 Car::~Car() {
-    // Empty destructor
+    // Empty destructor, the car don't allocate any memory
 }
 
 
 /**
- * 
+ * This method make the process wait until it is allowed to exit the roundabout. It waits for a message
+ * from the mailbox with the same type as the  car->queueNumber.
+ * @param mailbox Mailbox to receive the message
+ * @return int Status of the message received
 */
-int Car::carExit(Mailbox mailbox) {
+int Car::carWaitingTurn(Mailbox mailbox) {
     int st = -1;
 
     // Keep waiting until the car is allowed to exit
@@ -53,6 +61,14 @@ int Car::carExit(Mailbox mailbox) {
 }
 
 
+/**
+ * This method will send multiple messages to the mailbox with the same type, this is to multiples cars
+ * can exit the roundabout
+ * @param numOfMessagesToSend Number of messages to send
+ * @param messageType Type of message to send
+ * @param mailbox Mailbox to send the message
+ * @return int Status of the message sent
+*/
 int Car::allowPass(int numOfMessagesToSend, int messageType, Mailbox mailbox) {
     int st = -1;
 
@@ -77,4 +93,30 @@ int Car::allowPass(int numOfMessagesToSend, int messageType, Mailbox mailbox) {
 }
 
 
+int Car::allowAllCarstoPass(std::unordered_map<long,long> allCars, Mailbox mailbox) {
 
+    std::unordered_map<long, long>::iterator it = allCars.begin();
+
+    while (it != allCars.end()) {
+        // 1) First define create a Message object
+        long messagetType = it->first;
+        long totalMessagesToSend = it->second;
+
+        // Send the message do a for loop until the totalMessagesToSend is reached
+        for (int i = 0; i < totalMessagesToSend; i++) {
+            Message carBehaviourMessage;
+            carBehaviourMessage.mtype = messagetType;
+
+            std::string message = "Car number " + std::to_string(i) + " in the street " + std::to_string(messagetType) + " is allowed to pass";
+            std::copy(message.begin(), message.end(), carBehaviourMessage.mtext);
+
+            // 2) Send the message
+            int st = mailbox.send(&carBehaviourMessage);
+            if (st == -1) {
+                std::cerr << "Error sending message" << std::endl;
+                std::cerr << "Error: " << strerror(errno) << std::endl;
+                exit(1);
+            }
+        }
+    }
+}

@@ -10,9 +10,9 @@ class Car {
     public:
         Car(int id, int queueNumber); // Constructor declaration
         ~Car(); // Destructor declaration
-        int carEntry(Mailbox mailbox); // This method will be executed by the child process
-        int carExit(Mailbox mailbox); // This method will be executed by the child process
+        int carWaitingTurn(Mailbox mailbox); // This method will be executed by the child process
         int allowPass(int numOfMessagesToSend, int messageType, Mailbox mailbox);
+        int allowAllCarstoPass(std::unordered_map<long,long> allCar, Mailbox mailbox);
 };
 
 
