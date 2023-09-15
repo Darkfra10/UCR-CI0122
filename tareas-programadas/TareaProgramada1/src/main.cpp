@@ -1,15 +1,10 @@
 #include <iostream>
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
 #include <sys/shm.h>
 #include <semaphore.h>
 #include <fcntl.h>           /* For O_* constants */
-#include <sys/stat.h>        /* For mode constants */
 #include <sys/wait.h>
+#include <map>
 
 
 // Define the shared memory key and size
@@ -42,6 +37,7 @@ int main() {
     shared_counter = (int*)shmat(shmid, NULL, 0);
     if (shared_counter == (int*)-1) {
         perror("shmat");
+        std::cerr << "Error: " << errno << std::endl;
         exit(1);
     }
 

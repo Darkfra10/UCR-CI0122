@@ -6,7 +6,7 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-MailBox::MailBox() {
+Mailbox::Mailbox() {
     // Use msgget to create a new mailbox
     // IPC_CREAT: Create the mailbox if it doesn't exist
     // IPC_EXCL: Fail if the mailbox already exists
@@ -20,7 +20,7 @@ MailBox::MailBox() {
     std::cout << "Mailbox created with id: " << this->mailbox_id << std::endl;
 }
 
-MailBox::~MailBox() {
+Mailbox::~Mailbox() {
     // Use msgctl to destroy mailbox
     // IPC_RMID: Remove the mailbox
     // NULL: No flags
@@ -33,7 +33,7 @@ MailBox::~MailBox() {
     }
 }
 
-int MailBox::getNumPendingMessages() {
+int Mailbox::getNumPendingMessages() {
     // int msgctl(int msqid, int cmd, struct msqid_ds *buf);
     // struct msqid_ds {
     //     struct ipc_perm msg_perm;   /* Ownership and permissions */
@@ -65,7 +65,7 @@ int MailBox::getNumPendingMessages() {
  * @param type Type of message to count
  * @return int Number of pending messages for the given type
 */
-// int MailBox::getNumPendingMessagesForType(int type) {
+// int Mailbox::getNumPendingMessagesForType(int type) {
 //     struct msqid_ds messageInfo;
 //     int numMessages = 0;
 
@@ -91,7 +91,7 @@ int MailBox::getNumPendingMessages() {
  * Send method
  * @param message Pointer to message structure to send it has to be a struct msgbuf with a type and a text
 */
-int MailBox::send(const void *message) {
+int Mailbox::send(const void *message) {
     int st = -1;
     std::cout << "Sending message(const void *message)" << std::endl;
 
@@ -130,7 +130,7 @@ int MailBox::send(const void *message) {
  * @param message Pointer to message struct to receive
  * @return int Number of bytes received
 */
-int MailBox::receive(void *message) {
+int Mailbox::receive(void *message) {
     std::cout << "Receiving message(void *message)" << std::endl;
     int st = -1;
 

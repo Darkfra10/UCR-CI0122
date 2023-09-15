@@ -1,18 +1,18 @@
 #ifndef MAILBOX_HPP
 #define MAILBOX_HPP
+#define MAX_SIZE 1024
 
 
 /**
  * C++ class to encapsulate Unix message passing intrinsic structures and system calls
  * Francisco Ulate Alpízar C07901
 */
-class MailBox {
+class Mailbox {
     public:
         // Define the message structure within the class
-        
-        static const int MAX_SIZE = 1024;    // Maximum size of the message
-        MailBox();
-        ~MailBox();
+
+        Mailbox();
+        ~Mailbox();
         int send(const void *message); // Message is the structure to send
         int receive(void *message);	// Message is the structure to receive
         int getNumPendingMessages(); // Get the number of pending messages
