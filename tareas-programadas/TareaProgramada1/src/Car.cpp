@@ -8,6 +8,10 @@
 #include <sys/shm.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <locale.h>
 
 
 // Rotonda de circunvalación
@@ -26,11 +30,6 @@
 Car::Car(int id, int queueNumber) {
     this->id = id;
     this->queueNumber = queueNumber;
-    // if queueNumber / 10 is greater than 7 exit the program
-    if (queueNumber / 10 > 7) {
-        std::cerr << "Error: queueNumber / 10 is greater than 7" << std::endl;
-        exit(1);
-    }
 }
 
 // Destructor
@@ -45,7 +44,7 @@ Car::~Car() {
  * @param mailbox Mailbox to receive the message
  * @return int Status of the message received
 */
-int Car::carWaitingTurn(Mailbox mailbox) {
+int Car::carWaitingTurn(Mailbox& mailbox) {
     int st = -1;
 
     // Keep waiting until the car is allowed to exit
@@ -69,7 +68,7 @@ int Car::carWaitingTurn(Mailbox mailbox) {
  * @param mailbox Mailbox to send the message
  * @return int Status of the message sent
 */
-int Car::allowPass(int numOfMessagesToSend, int messageType, Mailbox mailbox) {
+int Car::allowPass(int numOfMessagesToSend, int messageType, Mailbox& mailbox) {
     int st = -1;
 
     // 1) First define create a Message object
@@ -93,9 +92,9 @@ int Car::allowPass(int numOfMessagesToSend, int messageType, Mailbox mailbox) {
 }
 
 
-int Car::allowAllCarstoPass(std::unordered_map<long,long> allCars, Mailbox mailbox) {
+void Car::allowAllCarsToPass(std::map<long,long> allCars, Mailbox& mailbox) {
 
-    std::unordered_map<long, long>::iterator it = allCars.begin();
+    std::map<long, long>::iterator it = allCars.begin();
 
     while (it != allCars.end()) {
         // 1) First define create a Message object
@@ -117,6 +116,7 @@ int Car::allowAllCarstoPass(std::unordered_map<long,long> allCars, Mailbox mailb
                 std::cerr << "Error: " << strerror(errno) << std::endl;
                 exit(1);
             }
+            std::cout << "Message sent: " << carBehaviourMessage.mtext << std::endl;
         }
     }
 }

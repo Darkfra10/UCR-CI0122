@@ -58,6 +58,18 @@ int Mailbox::getNumPendingMessages() {
     return messageInfo.msg_qnum;
 }
 
+void Mailbox::deleteAllMessages() {
+    // Delete all messages
+    int st = -1;
+    st = msgctl(this->mailbox_id, IPC_RMID, NULL);
+    if (st == -1) {
+        std::cerr << "Error destroying mailbox" << std::endl;
+        std::cerr << "Error: " << strerror(errno) << std::endl;
+        exit(1);
+    }
+}
+
+
 /**
  * Send method
  * @param message Pointer to message structure to send it has to be a struct msgbuf with a type and a text
@@ -102,7 +114,6 @@ int Mailbox::send(const void *message) {
  * @return int Number of bytes received
 */
 int Mailbox::receive(void *message) {
-    std::cout << "Receiving message(void *message)" << std::endl;
     int st = -1;
 
     // msgbuf* message_buffer = reinterpret_cast<msgbuf*>(message);
@@ -128,8 +139,6 @@ int Mailbox::receive(void *message) {
         std::cerr << "Error receiving message" << std::endl;
         std::cerr << "Error: " << strerror(errno) << std::endl;
         exit(1);
-    } else {
-        std::cout << "Message received: " << message_buffer->mtext << std::endl;
     }
 
     return st;
