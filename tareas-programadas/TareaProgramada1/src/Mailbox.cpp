@@ -26,6 +26,7 @@ Mailbox::~Mailbox() {
     // IPC_RMID: Remove the mailbox
     // NULL: No flags
     int st = -1;
+    std::cout << "Destroying mailbox with id: " << this->mailbox_id << std::endl;
     st = msgctl(this->mailbox_id, IPC_RMID, NULL);
     if (st == -1) {
         std::cerr << "Error destroying mailbox" << std::endl;
@@ -76,7 +77,6 @@ void Mailbox::deleteAllMessages() {
 */
 int Mailbox::send(const void *message) {
     int st = -1;
-    std::cout << "Sending message(const void *message)" << std::endl;
 
     // The msgsnd() function is used to send a message to the queue associated with the message queue identifier specified by msgid.
     // The argument msgp points to a user-defined buffer that must contain first a field of type long int that will specify the type of the message, and then a data portion that will hold the data bytes of the message
@@ -96,10 +96,11 @@ int Mailbox::send(const void *message) {
         exit(1);
     }
 
+    std::cout << "Sending message type: " << message_buffer->mtype << ". Message text: " << message_buffer->mtext << std::endl;
     st = msgsnd(this->mailbox_id, message_buffer, sizeof(message_buffer->mtext), 0);
 
     if (st == -1) {
-        std::cerr << "Error sending message" << std::endl;
+        std::cerr << "Mailbox::send Error sending message" << std::endl;
         exit(1);
     }
 
@@ -134,6 +135,7 @@ int Mailbox::receive(void *message) {
     }
 
     st = msgrcv(this->mailbox_id, reinterpret_cast<Message*>(message), sizeof(message_buffer->mtext), message_buffer->mtype, 0);
+    std::cout << "Received message type: " << message_buffer->mtype << ". Message text: " << message_buffer->mtext << std::endl;
 
     if (st == -1) {
         std::cerr << "Error receiving message" << std::endl;

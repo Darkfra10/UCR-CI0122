@@ -50,12 +50,7 @@ int Car::carWaitingTurn(Mailbox& mailbox) {
     // Keep waiting until the car is allowed to exit
     Message carBehaviourMessage;
     carBehaviourMessage.mtype = this->queueNumber;
-
     mailbox.receive(&carBehaviourMessage);
-
-    std::cout << "Car " << this->id << " is exiting street " << this->queueNumber << std::endl;
-    std::cout << "Message received: " << carBehaviourMessage.mtext << std::endl;
-
     return st;
 }
 
@@ -76,7 +71,7 @@ int Car::allowPass(int numOfMessagesToSend, int messageType, Mailbox& mailbox) {
     carBehaviourMessage.mtype = messageType;
 
     for (int i = 0; i < numOfMessagesToSend; i++) {
-        std::string message = "Car number " + std::to_string(i) + " in the street " + std::to_string(messageType) + " is allowed to pass";
+        std::string message = "Car number " + std::to_string(this->id) + " in the street " + std::to_string(messageType) + " is allowed to pass";
         std::copy(message.begin(), message.end(), carBehaviourMessage.mtext);
 
         // 2) Send the message
@@ -94,29 +89,24 @@ int Car::allowPass(int numOfMessagesToSend, int messageType, Mailbox& mailbox) {
 
 void Car::allowAllCarsToPass(std::map<long,long> allCars, Mailbox& mailbox) {
 
-    std::map<long, long>::iterator it = allCars.begin();
+    for (std::map<long,long>::iterator it = allCars.begin(); it != allCars.end(); ++it) {
+        const long message_type = it->first * 10;
+        const long totalMessagesToSend = it->second;
 
-    while (it != allCars.end()) {
-        // 1) First define create a Message object
-        long messagetType = it->first;
-        long totalMessagesToSend = it->second;
-
-        // Send the message do a for loop until the totalMessagesToSend is reached
         for (int i = 0; i < totalMessagesToSend; i++) {
             Message carBehaviourMessage;
-            carBehaviourMessage.mtype = messagetType;
+            carBehaviourMessage.mtype = message_type;
 
-            std::string message = "Car number " + std::to_string(i) + " in the street " + std::to_string(messagetType) + " is allowed to pass";
+            std::string message = "Car number " + std::to_string(this->id) + " in the street " + std::to_string(message_type) + " is allowed to pass";
             std::copy(message.begin(), message.end(), carBehaviourMessage.mtext);
 
             // 2) Send the message
             int st = mailbox.send(&carBehaviourMessage);
             if (st == -1) {
-                std::cerr << "Error sending message" << std::endl;
+                std::cerr << "allowAllCarsToPass Error sending message" << std::endl;
                 std::cerr << "Error: " << strerror(errno) << std::endl;
                 exit(1);
             }
-            std::cout << "Message sent: " << carBehaviourMessage.mtext << std::endl;
         }
     }
 }
