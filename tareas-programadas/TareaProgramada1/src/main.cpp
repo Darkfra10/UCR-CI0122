@@ -16,8 +16,8 @@
 int main(int argc, char const *argv[]) {
     const key_t SHM_KEY = 1234;
     const long TOTAL_STREETS = 7;
-    const long TOTAL_CARS = 100;
-    const long MAX_CARS = 10;
+    const long TOTAL_CARS = 2;
+    const long MAX_CARS = 2;
     const size_t SHM_SIZE = sizeof(long) * TOTAL_STREETS * 2; // Multiply by 2 to have more space if needed
 
     Mailbox mailbox;
@@ -122,6 +122,7 @@ int main(int argc, char const *argv[]) {
 
             car.carWaitingTurn(mailbox);
             std::cout << "OUT OF ROUNDABOUT FOR CAR " << car.id << std::endl;
+            exit(0);
         }
     }
 
