@@ -16,8 +16,8 @@
 int main(int argc, char const *argv[]) {
     const key_t SHM_KEY = 1234;
     const long TOTAL_STREETS = 7;
-    const long TOTAL_CARS = 2;
-    const long MAX_CARS = 2;
+    const long TOTAL_CARS = 13;
+    const long MAX_CARS = 6;
     const size_t SHM_SIZE = sizeof(long) * TOTAL_STREETS * 2; // Multiply by 2 to have more space if needed
 
     Mailbox mailbox;
@@ -49,8 +49,8 @@ int main(int argc, char const *argv[]) {
     // Use sem_open cause it's shared between processes
     semaphore = sem_open("/my_semaphore", O_CREAT | O_EXCL, 0666, 1);
     if (semaphore == SEM_FAILED) {
-        std::cerr << "Error creating semaphore" << std::endl;
-        std::cerr << "Error: " << strerror(errno) << std::endl;
+        std::cerr << "Error creating semaphore: " << strerror(errno) << std::endl;
+        std::cerr << "Please run again the program" << std::endl;
         if (sem_unlink("/my_semaphore") != 0) {
             std::cerr << "Error deleting semaphore: " << strerror(errno) << std::endl;
         }
@@ -103,16 +103,15 @@ int main(int argc, char const *argv[]) {
                     }
                 }
                 car.allowPass(maxCars, streetWithMostCars, mailbox);
-                carsInStreetSharedMemory[streetWithMostCars / 10] -= maxCars;
+                carsInStreetSharedMemory[streetWithMostCars / 10] -= maxCars; // Remove the cars from the street
                 sem_post(semaphore);
             }
-
-            if (i == TOTAL_CARS - 1) { 
+            
+            if (i == TOTAL_CARS - 1) {
                 // Last car
                 // Call the method to allow all cars to pass
                 std::map<long,long> carsInStreetCopy;
                 sem_wait(semaphore);
-                std:: cout << "THIS IS A UNIQUE CAR CAUSE IS THE LAST ID: " << car.id << std::endl;
                 for (int i = 0; i < TOTAL_STREETS; i++) {
                     carsInStreetCopy.insert(std::pair<long,long>(i, carsInStreetSharedMemory[i]));
                 }
@@ -127,11 +126,9 @@ int main(int argc, char const *argv[]) {
     }
 
     for (int i = 0; i < TOTAL_CARS; i++) {
-        std::cout << "Waiting for child process " << i + 1 << std::endl;
         wait(NULL);
     }
 
-    std::cout<< "END OF THE PROGRAM DELETING SHARED MEMORY" << std::endl;
     // Detach the shared memory segment
     if (shmdt(carsInStreetSharedMemory) == -1) {
         std::cerr << "Error detaching shared memory segment" << std::endl;

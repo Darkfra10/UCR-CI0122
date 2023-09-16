@@ -96,7 +96,6 @@ int Mailbox::send(const void *message) {
         exit(1);
     }
 
-    std::cout << "Sending message type: " << message_buffer->mtype << ". Message text: " << message_buffer->mtext << std::endl;
     st = msgsnd(this->mailbox_id, message_buffer, sizeof(message_buffer->mtext), 0);
 
     if (st == -1) {
@@ -135,7 +134,6 @@ int Mailbox::receive(void *message) {
     }
 
     st = msgrcv(this->mailbox_id, reinterpret_cast<Message*>(message), sizeof(message_buffer->mtext), message_buffer->mtype, 0);
-    std::cout << "Received message type: " << message_buffer->mtype << ". Message text: " << message_buffer->mtext << std::endl;
 
     if (st == -1) {
         std::cerr << "Error receiving message" << std::endl;

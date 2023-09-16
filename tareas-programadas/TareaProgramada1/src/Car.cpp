@@ -97,7 +97,7 @@ void Car::allowAllCarsToPass(std::map<long,long> allCars, Mailbox& mailbox) {
             Message carBehaviourMessage;
             carBehaviourMessage.mtype = message_type;
 
-            std::string message = "Car number " + std::to_string(this->id) + " in the street " + std::to_string(message_type) + " is allowed to pass";
+            std::string message = "Last cars are allowed to pass in the street " + std::to_string(message_type);
             std::copy(message.begin(), message.end(), carBehaviourMessage.mtext);
 
             // 2) Send the message
