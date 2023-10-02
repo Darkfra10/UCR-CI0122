@@ -16,7 +16,7 @@
 int main(int argc, char const *argv[]) {
     const key_t SHM_KEY = 1234;
     const long TOTAL_STREETS = 7;
-    const long TOTAL_CARS = 13;
+    const long TOTAL_CARS = 6;
     const long MAX_CARS = 6;
     const size_t SHM_SIZE = sizeof(long) * TOTAL_STREETS * 2; // Multiply by 2 to have more space if needed
 
@@ -90,12 +90,15 @@ int main(int argc, char const *argv[]) {
             for (int i = 0; i < TOTAL_STREETS; i++) {
                 totalCarsInRoundabout += carsInStreetSharedMemory[i];
             }
+            std::cout << "Total cars in roundabout: " << totalCarsInRoundabout << " of " << MAX_CARS << " cars" << std::endl;
             sem_post(semaphore);
+
 
             if (totalCarsInRoundabout >= MAX_CARS) {
                 long streetWithMostCars = 0;
                 long maxCars = 0;
                 sem_wait(semaphore);
+                std::cout << "INSIDE THE IF Total cars in roundabout: " << totalCarsInRoundabout << " of " << MAX_CARS << " cars" << std::endl;
                 for (int i = 0; i < TOTAL_STREETS; i++) {
                     if (carsInStreetSharedMemory[i] > maxCars) {
                         maxCars = carsInStreetSharedMemory[i];
@@ -104,14 +107,22 @@ int main(int argc, char const *argv[]) {
                 }
                 car.allowPass(maxCars, streetWithMostCars, mailbox);
                 carsInStreetSharedMemory[streetWithMostCars / 10] -= maxCars; // Remove the cars from the street
+                for (int i = 0; i < TOTAL_STREETS; i++) {
+                    totalCarsInRoundabout += carsInStreetSharedMemory[i];
+                }
+                std::cout << "RECAULCULATE Total cars in roundabout: " << totalCarsInRoundabout << " of " << MAX_CARS << " cars" << std::endl;
                 sem_post(semaphore);
             }
             
-            if (i == TOTAL_CARS - 1) {
+            if (i == TOTAL_CARS - 1 && totalCarsInRoundabout < MAX_CARS) {
+                
+               
                 // Last car
                 // Call the method to allow all cars to pass
                 std::map<long,long> carsInStreetCopy;
                 sem_wait(semaphore);
+                std::cout << "Last car" << std::endl;
+                std::cout << "I: " << i << " TOTAL_CARS: " << TOTAL_CARS << std::endl;
                 for (int i = 0; i < TOTAL_STREETS; i++) {
                     carsInStreetCopy.insert(std::pair<long,long>(i, carsInStreetSharedMemory[i]));
                 }
