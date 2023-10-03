@@ -90,8 +90,8 @@ ThreadTest()
 
     DEBUG('t', "Entering SimpleTest");
 
-/*
-    dp = new DinningPh();
+
+    dp = new DiningPh();
 
     for ( long k = 0; k < 5; k++ ) {
         Ph = new Thread( "dp" );
@@ -99,14 +99,14 @@ ThreadTest()
     }
 
     return;
-*/
-    for ( int k=1; k<5; k++) {
-      char* threadname = new char[100];
-      sprintf(threadname, "Hilo %d", k);
-      Thread* newThread = new Thread (threadname);
-      newThread->Fork (SimpleThread, (void*)threadname);
-    }
+
+    // for ( int k=1; k<5; k++) {
+    //   char* threadname = new char[100];
+    //   sprintf(threadname, "Hilo %d", k);
+    //   Thread* newThread = new Thread (threadname);
+    //   newThread->Fork (SimpleThread, (void*)threadname);
+    // }
     
-    SimpleThread( (void*)"Hilo 0");
+    // SimpleThread( (void*)"Hilo 0");
 }
 

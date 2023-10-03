@@ -88,13 +88,13 @@ void
 Semaphore::V()
 {
     Thread *thread;
-    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+    IntStatus oldLevel = interrupt->SetLevel(IntOff); // disable interrupts
 
     thread = queue->Remove();
     if (thread != NULL)	   // make thread ready, consuming the V immediately
 	scheduler->ReadyToRun(thread);
     value++;
-    interrupt->SetLevel(oldLevel);
+    interrupt->SetLevel(oldLevel); // re-enable interrupts
 }
 
 #ifdef USER_PROGRAM
@@ -123,79 +123,127 @@ Semaphore::Destroy()
 // Note -- without a correct implementation of Condition::Wait(), 
 // the test case in the network assignment won't work!
 Lock::Lock(const char* debugName) {
+    this->name = const_cast<char*>(debugName);
+    this->owner = NULL;
+    this->sem = new Semaphore(debugName, 1);
 
 }
 
 
 Lock::~Lock() {
-
+    delete this->sem;
 }
 
 
-void Lock::Acquire() {
-
+void Lock::Acquire() {  
+    this->sem->P();
+    this->owner = currentThread;
 }
 
 
 void Lock::Release() {
-
+    this->owner = NULL;
+    this->sem->V();
 }
 
 
 bool Lock::isHeldByCurrentThread() {
-   return false;
+   return this->owner == currentThread;
 }
 
 
 Condition::Condition(const char* debugName) {
-
+    this->name = const_cast<char*>(debugName);
+    this->queue = new List<Thread*>;
+    this->lock = nullptr;
 }
 
 
-Condition::~Condition() {
 
+Condition::~Condition() {
+    delete this->queue;
 }
 
 
 void Condition::Wait( Lock * conditionLock ) {
+    if (!conditionLock->isHeldByCurrentThread()) {
+        return;
+    }
+    IntStatus oldLevel = interrupt->SetLevel(IntOff); // disable interrupts
+    conditionLock->Release();
+    queue->Append(currentThread);
+    currentThread->Sleep();
+    conditionLock->Acquire();
+    interrupt->SetLevel(oldLevel); // re-enable interrupts
 
 }
 
 
 void Condition::Signal( Lock * conditionLock ) {
-
+    if (!conditionLock->isHeldByCurrentThread()) {
+        return;
+    }
+    IntStatus oldLevel = interrupt->SetLevel(IntOff); // disable interrupts
+    Thread *thread;
+    thread = queue->Remove();
+    if (thread != NULL)	   // make thread ready, consuming the V immediately
+    scheduler->ReadyToRun(thread);
+    interrupt->SetLevel(oldLevel); // re-enable interrupts
 }
 
 
 void Condition::Broadcast( Lock * conditionLock ) {
+    // Clear the queue
+   while (!queue->IsEmpty()) {
+       Signal(conditionLock);
+   }
 }
 
 
 // Mutex class
 Mutex::Mutex( const char * debugName ) {
-
+    this->name = const_cast<char*>(debugName);
+    this->owner = NULL;
+    this->sem = new Semaphore(debugName, 1);
 }
 
 Mutex::~Mutex() {
-
+    this->owner = NULL;
+    delete this->sem;
 }
 
 void Mutex::Lock() {
-
+    this->sem->P();
+    this->owner = currentThread;
 }
 
 void Mutex::Unlock() {
-
+    this->owner = NULL;
+    this->sem->V();
 }
 
 
 // Barrier class
-Barrier::Barrier( const char * debugName, int count ) {
+Barrier::Barrier( const char * debugName, int numThreads ) {
+    this->name = const_cast<char*>(debugName);
+    this->count = numThreads;
+    this->sem = new Semaphore(debugName, 0);
+    this->mutex = new Semaphore(debugName, 1);
+    this->arrived = 0;
 }
 
 Barrier::~Barrier() {
+    delete this->sem;
+    delete this->mutex;
 }
 
 void Barrier::Wait() {
+    this->mutex->P();
+    this->arrived++;
+    if (this->arrived == this->count) {
+        this->sem->V();
+    }
+    this->mutex->V();
+    this->sem->P();
 }
 
