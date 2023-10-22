@@ -30,7 +30,7 @@
 
 const int PageSize = SectorSize; 	// set the page size equal to
 					// the disk sector size, for
-					// simplicity
+					// simplicity (128 bytes)
 
 const int NumPhysPages = 32;
 const int MemorySize = NumPhysPages * PageSize;
