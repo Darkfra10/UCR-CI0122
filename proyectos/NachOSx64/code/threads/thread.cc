@@ -252,6 +252,17 @@ static void InterruptEnable() { interrupt->Enable(); }
 //	"arg" is the parameter to be passed to the procedure
 //----------------------------------------------------------------------
 
+/**
+void StackAllocate(VoidFunctionPtr func, int arg)
+This routine does the dirty work of allocating the stack and creating an initial activation record that causes execution to appear to begin in func. The details are a somewhat complicated. Specifically, StackAllocate does the following:
+Allocate memory for the stack. The default stack size is StackSize (4096) 4-byte integers.
+Place a sentinel value at the top of the allocated stack. Whenever it switches to a new thread, the scheduler verifies that the sentinel value of the thread being switched out has not changed, as might happen if a thread overflows its stack during execution.
+Initialize the program counter PC to point to the routine ThreadRoot. Instead of beginning execution at the user-supplied routine, execution actually begins in routine ThreadRoot. ThreadRoot does the following:
+Calls an initialization routine that simply enables interrupts.
+Calls the user-supplied function, passing it the supplied argument.
+Calls thread::Finish(), to terminate the thread.
+Having thread execution begin in ThreadRoot rather than in the user-supplied routine makes it straightforward to terminate the thread when it finishes. The code for ThreadRoot is written in assembly language and is found in switch.s Note: ThreadRoot isn't run by the thread that calls Fork(). The newly created thread executes the instructions in ThreadRoot when it is scheduled and starts execution.
+*/
 void
 Thread::StackAllocate (VoidFunctionPtr func, void* arg)
 {
