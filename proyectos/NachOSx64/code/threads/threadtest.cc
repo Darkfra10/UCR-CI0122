@@ -67,7 +67,14 @@ SimpleThread(void* name)
         //IntStatus oldLevel = interrupt->SetLevel(IntOff);
 	printf("*** thread %s looped %d times\n", threadName, num);
 	//interrupt->SetLevel(oldLevel);
-        //currentThread->Yield();
+        //! Esta linea indica que haya un cambio de contexto para multi hilo: nachos es un solo hilo
+        /*al ceder el cambio de contexto el hilo pasa al estado "listo" y el planificador elige alguno de los
+        que estaban en el estado listo para ejecutar*/
+        /*Hay que suponer que nachos puede hacer cambios de contexto en cualquier momento y no solo cuando hago yield
+        ./nachos -rs 1: esta opcion (el 1) nos permite pasas una semilla para que haga cambios de contexto aleatoriamente o 
+        que varie*/
+        //! objeetivo: que cualquier programa hecho en nachos debe funcionar bien independientemente de la semilla
+        currentThread->Yield();
     }
     //IntStatus oldLevel = interrupt->SetLevel(IntOff);
     printf(">>> Thread %s has finished\n", threadName);

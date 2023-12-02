@@ -8,7 +8,6 @@
 #include "copyright.h"
 #include "system.h"
 #include "preemptive.h"
-#include <iostream>
 
 // This defines *all* of the global data structures used by Nachos.
 // These are all initialized and de-allocated by this file.
@@ -34,7 +33,11 @@ SynchDisk   *synchDisk;
 #endif
 
 #ifdef USER_PROGRAM	// requires either FILESYS or FILESYS_STUB
+#include "nachosOpenFilesTable.h"
 Machine *machine;	// user program memory and registers
+NachosOpenFilesTable* nachosOpenFilesTable = new NachosOpenFilesTable();
+BitMap* freeFramesMap = new BitMap(NumPhysPages);
+Semaphore* semConsole = new Semaphore("name", 1); // semaphore for console program
 #endif
 
 #ifdef NETWORK
@@ -179,6 +182,8 @@ Initialize(int argc, char **argv)
     
 #ifdef USER_PROGRAM
     machine = new Machine(debugUserProg);	// this must come first
+    // NachosOpenFilesTable* nachosOpenFilesTable = new NachosOpenFilesTable();
+    // Semaphore* semConsole = new Semaphore("semConsole", 1); // semaphore for console program
 #endif
 
 #ifdef FILESYS
@@ -208,29 +213,26 @@ Cleanup()
     delete preemptiveScheduler;
 
 #ifdef NETWORK
-    std::cout << "Deleting postOffice" << std::endl;
     delete postOffice;
 #endif
     
 #ifdef USER_PROGRAM
-    std::cout << "Deleting machine" << std::endl;
+    delete semConsole;
     delete machine;
+    delete nachosOpenFilesTable;
 #endif
 
 #ifdef FILESYS_NEEDED
-    std::cout << "Deleting fileSystem" << std::endl;
     delete fileSystem;
 #endif
 
 #ifdef FILESYS
-    std::cout << "Deleting synchDisk" << std::endl;
     delete synchDisk;
 #endif
-
+    
     delete timer;
     delete scheduler;
     delete interrupt;
     
     Exit(0);
 }
-

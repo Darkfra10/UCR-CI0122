@@ -31,7 +31,11 @@ extern Timer *timer;				// the hardware alarm clock
 
 #ifdef USER_PROGRAM
 #include "machine.h"
+#include "synch.h"
 extern Machine* machine;	// user program memory and registers
+extern Semaphore* semConsole; // semaphore for console program
+extern NachosOpenFilesTable* nachosOpenFilesTable;
+extern BitMap* freeFramesMap;
 #endif
 
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB 
