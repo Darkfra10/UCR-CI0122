@@ -36,20 +36,12 @@ INCDIR =-I../userprog -I../threads
 # Corrects the error: dangerous relocation GP
 CFLAGS = -c $(INCDIR) -mips1 -G 0
 
-clean:
-	/bin/rm -f *.o *.coff
-all: halt shell matmult sort addrspacetest
+all: halt shell matmult sort
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
 	$(AS) $(ASFLAGS) -o start.o strt.s
 	/bin/rm strt.s
-
-addrspacetest.o: addrspacetest.c
-	$(CC) $(CFLAGS) -c addrspacetest.c
-addrspacetest: addrspacetest.o start.o
-	$(LD) $(LDFLAGS) start.o addrspacetest.o -o addrspacetest.coff
-	../bin/coff2noff addrspacetest.coff addrspacetest
 
 halt.o: halt.c
 	$(CC) $(CFLAGS) -c halt.c
