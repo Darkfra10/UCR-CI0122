@@ -15,7 +15,7 @@
 
 #include "copyright.h"
 #include "filesys.h"
-#include "translate.h"
+#include "translate.h" // TranslationEntry
 
 #define UserStackSize		1024 	// increase this as necessary!
 
@@ -24,8 +24,12 @@ class AddrSpace {
     AddrSpace(OpenFile *executable);	// Create an address space,
 					// initializing it with the program
 					// stored in the file "executable"
-    AddrSpace(AddrSpace *space);	// Create an address space,
-          // initializing it with the program
+
+    
+    // Constructor for a thread that will execute the same executable
+    // they need to share the same address space, the stack is the only
+    // thing that needs to be different
+    AddrSpace(AddrSpace *space);	
     ~AddrSpace();			// De-allocate an address space
 
     void InitRegisters();		// Initialize user-level CPU registers,

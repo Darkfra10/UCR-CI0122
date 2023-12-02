@@ -39,9 +39,9 @@ Thread::Thread(const char* threadName)
     stack = NULL;
     status = JUST_CREATED;
 #ifdef USER_PROGRAM
-    space = NULL;
-    openFilesTable = new NachosOpenFilesTable();
-    id = 0;
+    space = NULL; // default value
+    openFiles = new NachosOpenFilesTable(); // initialize open files table
+    id = 0; // default value
 #endif
 }
 

@@ -46,7 +46,7 @@
 
 #include <map>
 std::map<int, bool> socketMap;
-BitMap * fileMap = new BitMap(128);
+BitMap * processMap = new BitMap(128);
 
 /**
  * Almacena la información correspondiente del hilo. 
@@ -150,7 +150,7 @@ void NachOS_Exec() {		// System call 2
   Thread* newThread = new Thread("New Thread");
   char* fileName = readEntry();
   infoThread * threads = new infoThread();
-  long bitClear = fileMap->Find();
+  long bitClear = processMap->Find();
   newThread->id = bitClear;
   if (newThread->id == -1 ) {
     printf("No space for new file\n");
@@ -178,9 +178,9 @@ void NachOS_Join() {		// System call 3
   // printf("JOIN EMPIEZA\n");
 	long id = machine->ReadRegister(4);  // se lee id ID del proceso que hay que esperar a que termine
   DEBUG( 'f', "Id de join %d \n" , id);
-  if (fileMap->Test(id)) {
+  if (processMap->Test(id)) {
     threadData[id]->semTh->P();
-    fileMap->Clear(id);
+    processMap->Clear(id);
     machine->WriteRegister(2, 0);
   } else {
     printf("id del proceso invalido\n");

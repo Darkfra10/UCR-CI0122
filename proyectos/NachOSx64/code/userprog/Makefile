@@ -26,7 +26,7 @@ include ../Makefile.common
 include ../Makefile.dep
 
 clean:
-	rm -f *.o *.d *~ *.a nachos
+	rm -f *.o *.d *~ *.a nachos nachos.*
 #-----------------------------------------------------------------
 # DO NOT DELETE THIS LINE -- make depend uses it
 # DEPENDENCIES MUST END AT END OF FILE
@@ -2364,21 +2364,13 @@ exception.o: ../userprog/exception.cc /usr/include/stdc-predef.h \
  /usr/include/c++/11/bits/locale_facets.tcc \
  /usr/include/c++/11/bits/basic_ios.tcc \
  /usr/include/c++/11/bits/ostream.tcc /usr/include/c++/11/istream \
- /usr/include/c++/11/bits/istream.tcc ../userprog/../threads/synch.h \
- ../userprog/../threads/copyright.h ../userprog/../threads/thread.h \
- ../userprog/../threads/utility.h ../machine/sysdep.h \
- ../threads/copyright.h /usr/include/c++/11/stdlib.h \
- /usr/include/string.h /usr/include/strings.h ../machine/machine.h \
- ../threads/utility.h ../machine/translate.h ../machine/disk.h \
- ../userprog/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
- ../machine/translate.h ../userprog/nachosOpenFilesTable.h \
- ../userprog/bitmap.h ../filesys/openfile.h ../userprog/../threads/list.h \
- /usr/include/c++/11/vector /usr/include/c++/11/bits/stl_uninitialized.h \
+ /usr/include/c++/11/bits/istream.tcc /usr/include/c++/11/vector \
+ /usr/include/c++/11/bits/stl_uninitialized.h \
  /usr/include/c++/11/bits/stl_vector.h \
  /usr/include/c++/11/bits/stl_bvector.h \
  /usr/include/c++/11/bits/vector.tcc /usr/include/c++/11/cstring \
- /usr/include/arpa/inet.h /usr/include/netinet/in.h \
- /usr/include/x86_64-linux-gnu/sys/socket.h \
+ /usr/include/string.h /usr/include/strings.h /usr/include/arpa/inet.h \
+ /usr/include/netinet/in.h /usr/include/x86_64-linux-gnu/sys/socket.h \
  /usr/include/x86_64-linux-gnu/bits/socket.h \
  /usr/include/x86_64-linux-gnu/bits/socket_type.h \
  /usr/include/x86_64-linux-gnu/bits/sockaddr.h \
@@ -2393,12 +2385,8 @@ exception.o: ../userprog/exception.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/asm/sockios.h \
  /usr/include/asm-generic/sockios.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_osockaddr.h \
- /usr/include/x86_64-linux-gnu/bits/in.h ../userprog/addrspace.h \
- ../threads/system.h ../threads/copyright.h ../threads/utility.h \
- ../threads/thread.h ../threads/scheduler.h ../threads/list.h \
- ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
- ../machine/timer.h ../threads/synch.h ../userprog/syscall.h \
- /usr/include/c++/11/map /usr/include/c++/11/bits/stl_tree.h \
+ /usr/include/x86_64-linux-gnu/bits/in.h /usr/include/c++/11/map \
+ /usr/include/c++/11/bits/stl_tree.h \
  /usr/include/c++/11/ext/aligned_buffer.h \
  /usr/include/c++/11/bits/node_handle.h \
  /usr/include/c++/11/bits/stl_map.h /usr/include/c++/11/tuple \
@@ -2406,7 +2394,19 @@ exception.o: ../userprog/exception.cc /usr/include/stdc-predef.h \
  /usr/include/c++/11/array /usr/include/c++/11/bits/uses_allocator.h \
  /usr/include/c++/11/bits/invoke.h \
  /usr/include/c++/11/bits/stl_multimap.h \
- /usr/include/c++/11/bits/erase_if.h
+ /usr/include/c++/11/bits/erase_if.h ../userprog/../threads/synch.h \
+ ../userprog/../threads/copyright.h ../userprog/../threads/thread.h \
+ ../userprog/../threads/utility.h ../machine/sysdep.h \
+ ../threads/copyright.h /usr/include/c++/11/stdlib.h ../machine/machine.h \
+ ../threads/utility.h ../machine/translate.h ../machine/disk.h \
+ ../userprog/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
+ ../machine/translate.h ../userprog/nachosOpenFilesTable.h \
+ ../userprog/bitmap.h ../filesys/openfile.h ../userprog/../threads/list.h \
+ ../userprog/addrspace.h ../threads/system.h ../threads/copyright.h \
+ ../threads/utility.h ../threads/thread.h ../threads/scheduler.h \
+ ../threads/list.h ../machine/interrupt.h ../threads/list.h \
+ ../machine/stats.h ../machine/timer.h ../threads/synch.h \
+ ../userprog/syscall.h
 progtest.o: ../userprog/progtest.cc /usr/include/stdc-predef.h \
  ../threads/copyright.h ../threads/system.h ../threads/copyright.h \
  ../threads/utility.h ../machine/sysdep.h /usr/include/c++/11/stdlib.h \

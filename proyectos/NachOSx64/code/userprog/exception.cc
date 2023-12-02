@@ -23,20 +23,19 @@
 
 
 // #include "nachosOpenFilesTable.h"
-#include <fcntl.h> 
 #include <unistd.h>
 #include <iostream>
-#include "../threads/synch.h"
 #include <unistd.h>
 #include <vector>
-
+#include <fcntl.h> 
 #include <cstring>
 #include <stdio.h>
-
+#include <map>
 #include <arpa/inet.h>  // for inet_pton
-#include <sys/types.h>  // for connect 
 #include <sys/socket.h>
+#include <sys/types.h>  // for connect 
 
+#include "../threads/synch.h"
 #include "addrspace.h"
 #include "bitmap.h"
 #include "copyright.h"
@@ -44,24 +43,29 @@
 #include "system.h"
 #include "syscall.h"
 
-#include <map>
+
+#define BITMAP_SIZE 128
+
 std::map<int, bool> socketMap;
-BitMap * fileMap = new BitMap(128);
+BitMap * processMap = new BitMap(BITMAP_SIZE);
 
 /**
- * Almacena la información correspondiente del hilo. 
+ * Class that manages the the data of a open process
 */
-struct infoThread {
-  long  id;
+struct currentProcess {
+  currentProcess();
+  long id;
   char* fileName;
   Semaphore * semTh;
-  inline infoThread()
-  : id(-1)
-  , fileName(NULL)
-  , semTh(NULL){}
 };
 
-std::vector <infoThread*> threadData (sizeof(infoThread) * 128);
+currentProcess::currentProcess() {
+  id = -1;
+  fileName = NULL;
+  semTh = NULL;
+}
+
+std::vector <currentProcess*> processTable (sizeof(currentProcess) * 128);
 
 void returnFromSystemCall() {
   machine->WriteRegister( PrevPCReg, machine->ReadRegister( PCReg ) );        // PrevPC <- PC
@@ -76,67 +80,92 @@ void NachOS_Halt() {		// System call 0
   DEBUG('a', "Shutdown, initiated by user program.\n");
   currentThread->Finish();
   interrupt->Halt();
+  returnFromSystemCall();  // Update the PC registers
 }
 
 /*
  *  System call interface: void Exit( int )
  */
 void NachOS_Exit() {		// System call 1
-  DEBUG('b',"Exit, initiated by user program.\n");
+  DEBUG ('a', "Entering exit  syscall...\n");
+
+  // Get the process data associated with the current thread
+  currentProcess * processData = processTable[currentThread->id];
+
+  // openFilesTable, current thread is exiting (being deleted)
   nachosOpenFilesTable->delThread();
-  infoThread * dataAux = threadData[currentThread->id];
-  if (dataAux != nullptr) {
-    Semaphore* sem = dataAux->semTh;
+  if (processData != nullptr) {
+    Semaphore* sem = processData->semTh;
     if (sem != nullptr) {
-      DEBUG( 'f', "Soy el id dentro del if del semaforo %d\n" , dataAux->id);
+      // If it does exist, signal the process semaphore
+      DEBUG('f', "Process %d is waiting...\n", processData->id);
+      // Signal the process semaphore to wake up the parent process
       sem->V();
     }
   }
-  // threadData[(long) currentThread->id]->semTh->V();
+  
   delete currentThread->space;
+  // Yield the CPU to allow other threads to execute
   currentThread->Yield();
+  // exit the current thread
   currentThread->Finish();
-  machine->WriteRegister(2, 0);
+  machine->WriteRegister(2, 0); // success
   returnFromSystemCall();
 }
 
 /**
  * lee datos de la memoria de usuario y los coloca en un buffer el cual retorna
 */
-char* readEntry() {
-   int bufferAddr = machine->ReadRegister(4);
-   char* writeBuffer = new char[100];
-   int size = 101;
-   memset(writeBuffer, 0, size);
-   char buffer = 0;
-   int posBuffer = 0;
-   for (int charPos = 0; charPos < size; charPos++) {
-      posBuffer = charPos;
-      machine->ReadMem(bufferAddr + charPos, 1, (int*) &buffer);
-      charPos = posBuffer;
-      if (buffer != 0) {
-         writeBuffer[charPos] = buffer;
-      }
-   }
-   return writeBuffer;
+char* readExecEntry() {
+  // Read the file address from reg 4
+  int fileAddr = machine->ReadRegister(4);
+
+  // Buffer to store the content of the file being writte
+  char* writeBuffer = new char[100];
+  int size = 101; // Add + 1 cause the last char is \0
+  memset(writeBuffer, 0, size);
+
+
+  char buffer = 0;
+  int positionBuffer = 0;
+
+  // Copy the content from memory to the buffer
+  for (int position = 0; position < size; position++) {
+    positionBuffer = position;
+    // Read a char from memory and store it in the buffer
+    machine->ReadMem(fileAddr + position, 1, (int*) &buffer);
+    position = positionBuffer;
+    if (buffer != 0) {
+        writeBuffer[position] = buffer;
+    }
+  }
+
+  return writeBuffer;
 }
 
-void NachosAsistExec(void* data) {
-  // printf("Empieza EXEC_ASSIS\n");
-  infoThread* dataAux = threadData[(long) data];
-  OpenFile* executable = fileSystem->Open(dataAux->fileName);
+
+void NachosAssistExec(void* data) {
+  // Get the process data assocaited with the specified position in the table
+  currentProcess* processData = processTable[(long) data];
+
+  OpenFile* executable = fileSystem->Open(processData->fileName);
   if (executable == NULL) {
-    printf("Cant open file\n");
+    std::cout << "Unable to open file " << processData->fileName << std::endl;
     return; /*returnFromSystemCall();*/
   }
+
+  // New constructor to copy the shared segments and create a new stack
   AddrSpace* space = new AddrSpace(executable);    
   currentThread->space = space;
+
+  // Close the executable file
   delete executable;
+
   space->InitRegisters();
   space->RestoreState();
   machine->Run();
-  // threadData[(long) data]->semTh->V();
-  printf("Termina EXEC_ASSIS\n");
+  
+  std::cerr << "This message should never be printed" << std::endl;
   ASSERT(false);
 }
 
@@ -146,27 +175,36 @@ void NachosAsistExec(void* data) {
  */
 void NachOS_Exec() {		// System call 2
   // printf("Empieza EXEC\n");
-  DEBUG('c',"Exec, initiated by user program.\n");
-  Thread* newThread = new Thread("New Thread");
-  char* fileName = readEntry();
-  infoThread * threads = new infoThread();
-  long bitClear = fileMap->Find();
-  newThread->id = bitClear;
-  if (newThread->id == -1 ) {
-    printf("No space for new file\n");
-    machine->WriteRegister(2, -1);
+  DEBUG ('a', "Entering exec  syscall...\n");
+
+  // Create a new thread to execute the user thread
+  Thread* child = new Thread("ChildThread");
+
+  char* fileName = readExecEntry();
+  currentProcess * processData = new currentProcess();
+
+  // The thread id is the position in the processMap
+  long bitClear = processMap->Find();
+  child->id = bitClear;
+
+  if (child->id == -1 ) {
+    std::cout << "No hay espacio para el proceso" << std::endl;
+    machine->WriteRegister(2, -1); // Fail 
   } else {
-    DEBUG( 'f', "ID of thread %d\n", threads->id );
-    threads->id = newThread->id;
-    threads->fileName = fileName;
-    threads->semTh = new Semaphore("Thread Sem", 0);
-    threadData[bitClear] = threads;
-    newThread->Fork(NachosAsistExec, (void*) bitClear);
-    machine->WriteRegister(2, 0);
+
+    DEBUG('f', "Thread id: %d\n", child->id);
+    // The new process id is the thread id
+    processData->id = child->id;
+    processData->fileName = fileName;
+    processData->semTh = new Semaphore("Process Sem", 0);
+    // Store the process data in the process table at the specified position 
+    processTable[bitClear] = processData;
+    // Fork the new thread to execute the executable file
+    child->Fork(NachosAssistExec, (void*) bitClear);
+    machine->WriteRegister(2, 0); // Success
   }
+
   currentThread->Yield();
-  // printf("Termina EXEC_ASSIS\n");
-  // printf("Termina EXEC\n");
   returnFromSystemCall();
 }
 
@@ -174,20 +212,25 @@ void NachOS_Exec() {		// System call 2
  *  System call interface: int Join( SpaceId )
  */
 void NachOS_Join() {		// System call 3
-  DEBUG('d',"Join, initiated by user program.\n");
-  // printf("JOIN EMPIEZA\n");
-	long id = machine->ReadRegister(4);  // se lee id ID del proceso que hay que esperar a que termine
-  DEBUG( 'f', "Id de join %d \n" , id);
-  if (fileMap->Test(id)) {
-    threadData[id]->semTh->P();
-    fileMap->Clear(id);
+  DEBUG ('a', "Entering join  syscall...\n");
+
+  // Get the process id from the r4 register
+	long id = machine->ReadRegister(4);
+
+
+  DEBUG('a', "Process id: %d\n", id);
+  // Check if the process id is valid
+  if (processMap->Test(id)) {
+    // Wait for the process semaphore to be signaled
+    processTable[id]->semTh->P();
+    // Clear the process id from the process map
+    processMap->Clear(id);
+    // Return the process id
     machine->WriteRegister(2, 0);
   } else {
-    printf("id del proceso invalido\n");
-    machine->WriteRegister(2, -1);  
+    std::cout << "Process id is not valid" << std::endl;
+    machine->WriteRegister(2, -1);  // Fail
   }
-  // printf("JOIN TERMINA\n");
-  DEBUG( 'f', "Saliendo a join\n" );
   returnFromSystemCall();   
 }
 
@@ -196,21 +239,18 @@ void NachOS_Join() {		// System call 3
  */
 int iteratorCreate = 0;
 void NachOS_Create() {		// System call 4
-  // printf("CREATE EMPIEZA\n");
+  DEBUG ('a', "Entering create  syscall...\n");
 
-  //Comienzo de la string
-  int fileNameAddr = machine->ReadRegister(4); //Nombre
-  if(fileNameAddr == 0) {
-    DEBUG('a', "Error: address to filename char* invalid: void NachOS_Create()");
-  }
+  // Get the address of the filename from r4 register
+  int fileAddr = machine->ReadRegister(4);
+
   char charFileName;
   char fileName[FILENAME_MAX + 1];
+  memset(fileName, 0, FILENAME_MAX + 1);
   
-  //ReadMemFromUser debe traducir las paginas virtuales para leer el string de la memoria 10:00
+  // Read the filename from the memory and store it in a string
   for(int i = 0; ; i++) {
-    if (!machine->ReadMem(fileNameAddr + iteratorCreate, 1, (int*)&charFileName)) {
-      DEBUG('a', "Error: (!machine->ReadMem(fileNameAddr, 1, (int*)&fileName))");
-    }
+    machine->ReadMem(fileAddr + iteratorCreate, 1, (int*)&charFileName);
     fileName[iteratorCreate] = charFileName;
 
     if (charFileName == '\0') {
@@ -219,13 +259,10 @@ void NachOS_Create() {		// System call 4
     iteratorCreate++;
   }
 
-  fileName[iteratorCreate] = '\0';
-  // printf("\tFilename is: %s\n", fileName);
+  fileName[iteratorCreate] = '\0'; // Concatenate the end of string char
 
-  DEBUG('a', "File has been created: NachOS_Create()");
   ASSERT(fileSystem->Create(fileName, 100));
   machine->WriteRegister(2, 0);
-  // printf("CREATE TERMINA\n");
   returnFromSystemCall();
 }
 
@@ -233,102 +270,125 @@ void NachOS_Create() {		// System call 4
 /*
  *  System call interface: OpenFileId Open( char * )
  */
-int iteratorOpen = 0;
+
+int iterator = 0; // Declare outside, still don't know if it's the best way
 void NachOS_Open() {		// System call 5
-  // Read the name from the user memory, see 5 below
-  // Use NachosOpenFilesTable class to create a relationship
-  // between user file and unix file
-  // Verify for errors
-  // printf("Open empieza\n");
-  //Comienzo de la string
-  int fileNameAddr = machine->ReadRegister(4); //Nombre
-  if(fileNameAddr == 0) {
-    DEBUG('a', "Error: address to filename char* invalid: void NachOS_Open()");
-  }
+  DEBUG ('a', "Entering open  syscall...\n");
+
+  // buffer: register 4
+  // size: register 5
+  // id: register 6
+
+  // Get the address of the buffer from r4 register
+  // Where the data will be written
+  // r4 is used to pass the data write address from the calling code 
+  // (user code) and a called function (NachOs_Open())
+  // In MIPS: the regs 4 - 7 are used to pass arguments and data references in
+  // function calls
+
+  // Read the file address from reg 4
+  int fileAddr = machine->ReadRegister(4); //Nombre
+
   char charFileName;
   char fileName[FILENAME_MAX + 1];
   memset(fileName, 0, FILENAME_MAX + 1);
   
-  //Para obtener cada caracter del nombre y formar una string
+  // Read the filename from the memory and store it in a string
   for( int i = 0; ; i++ ) {
-    if (!machine->ReadMem(fileNameAddr + iteratorOpen, 1, (int*)&charFileName)) {
-      DEBUG('a', "Error: NachOS_Open()");
-    }
+    machine->ReadMem(fileAddr + iterator, 1, (int*)&charFileName);
+    fileName[iterator] = charFileName;
 
-    fileName[iteratorOpen] = charFileName;
-
-    iteratorOpen++;
+    iterator++;
 
     if (charFileName == '\0') {
       break;
     }
   }
-  fileName[iteratorOpen] = '\0';
+  fileName[iterator] = '\0';
 
-  // printf("\tFilename is: %s\n", fileName);
-
-  DEBUG('a', "File has been opened: NachOS_Open()");
+  // Open the file
   int id = open(fileName, O_RDWR | O_CREAT);
   if (id == -1) {
     DEBUG('a', "Error: NachOS_Open() fileOpened");
     machine->WriteRegister(2, -1);
   } else {
-    int added = nachosOpenFilesTable->Open(id);
-    if (added == -1) {
-      DEBUG('a', "Cant add the file to nachos open files table: NachOS_Open()");
-      // printf("OPEN: Cant add the file to table\n");
+    // Add the file to the nachos open files table
+    int fileId = nachosOpenFilesTable->Open(id);
+    if (fileId == -1) {
+      std::cout << "Error: NachOS_Open() fileOpened" << std::endl;
       machine->WriteRegister(2, -1);
     } else {
-      // printf("OPEN: Successful\n");
-      machine->WriteRegister(2, added); //Devuelve el nachosHandle
+      std::cout << "File opened with id: " << fileId << std::endl;
+      machine->WriteRegister(2, fileId);
     }
   }
-  // printf("Open termina\n");
-  iteratorOpen = 0;
+  iterator = 0;
   returnFromSystemCall();		// Update the PC registers
 }
+
 
 /*
  *  System call interface: OpenFileId Write( char *, int, OpenFileId )
  */
 void NachOS_Write() {		// System call 7
-  DEBUG( 'f', "Entrando a write\n" );
-  int bufferAddr = machine->ReadRegister(4);
-  int size = machine->ReadRegister(5);
-  OpenFileId descriptorFile = machine->ReadRegister(6);
-  char* writeBuffer = new char[size + 1];
-  memset(writeBuffer, 0, size + 1);
+  DEBUG ('f', "Entering write call...\n");
+
+
+  // Get the address of the filename from r4 register
+  int fileAddr = machine->ReadRegister(4);
+  // Get the size of the filename from r5 register
+  int fileSizeBuff = machine->ReadRegister(5);
+
+  OpenFileId fileId = machine->ReadRegister(6);
+
+
+  char* writeBuffer = new char[fileSizeBuff + 1];
+  memset(writeBuffer, 0, fileSizeBuff + 1);
+
   char buffer = 0;
-  int pos = 0;
-  // Mediante la direccion del registro 4 lee y alamacena en writebuffer.
-  for (int i = 0; i < size; i++) {
-    pos = i;
-    machine->ReadMem(bufferAddr + i, 1, (int*) &buffer);
-    i = pos;
+  int position = 0;
+  
+  // Read the filename from the memory and store it in a string
+  for (int i = 0; i < fileSizeBuff; i++) {
+    position = i;
+    machine->ReadMem(fileAddr + i, 1, (int*) &buffer);
+    i = position;
     if (buffer != 0) {
       writeBuffer[i] = buffer;
     }
   }
-  switch (descriptorFile) {
+
+
+  switch (fileId) {
     case ConsoleInput:
       machine->WriteRegister(2, -1);
       break;
+
     case ConsoleOutput:
-      printf("%s\n", writeBuffer);
-      machine->WriteRegister(2, size);
-      stats->numConsoleCharsWritten += size;
+      std::cout << writeBuffer << std::endl;
+      machine->WriteRegister(2, fileSizeBuff);
+      stats->numConsoleCharsWritten += fileSizeBuff;
       break;
+    case ConsoleError:
+        // Write the content of the buffer to the console error and return the
+        // number of bytes written
+        std::cerr << machine->ReadRegister(4) << std::endl;
+        // Write the number of bytes written to r2
+        machine->WriteRegister(2, fileSizeBuff);
+        break;
     default:
-      // Verifica si el archivo está abierto
-      if (nachosOpenFilesTable->isOpened(descriptorFile)) {
-        int unixHandle = nachosOpenFilesTable->getUnixHandle(descriptorFile);
-        // Escribe apartir del unixHandle y lo almacena en writeBuffer
-        machine->WriteRegister(2, size);
-        printf("%d\n", size);
-        write(unixHandle, writeBuffer, size);
-        stats->numDiskWrites += size;
+      
+      // check if the given file is opened
+      if (nachosOpenFilesTable->isOpened(fileId)) {
+        int unixHandle = nachosOpenFilesTable->getUnixHandle(fileId);
+        
+        // unix syscall to write the buffer content to the file and return
+        // the number of bytes written
+        write(unixHandle, writeBuffer, fileSizeBuff);
+        machine->WriteRegister(2, fileSizeBuff);
+        stats->numDiskWrites += fileSizeBuff;
       } else {
-        machine->WriteRegister(2, -1); // return -1 in r2
+        machine->WriteRegister(2, -1); // Error
       }
       break;
   }
@@ -341,56 +401,77 @@ void NachOS_Write() {		// System call 7
  *  System call interface: OpenFileId Read( char *, int, OpenFileId )
  */
 void NachOS_Read() {		// System call 7
-  // printf("READ empieza\n");
-  int bufferAddr = machine->ReadRegister(4);
-  int size = machine->ReadRegister( 5 );	// Read size to write
-  // buffer = Read data from address given by user;
-  OpenFileId descriptor = machine->ReadRegister( 6 ); // Read file descriptor
+  DEBUG ('f', "Entering read  syscall...\n");
 
-  char* readBuffer = new char[size + 1];
-  memset(readBuffer, 0, size + 1);
-  int charReaded = 0;
+   // buffer: register 4
+   // size: register 5
+   // id: register 6
 
+   // Get the address of the buffer from r4 register
+   // Where the data will be written
+   // r4 is used to pass the data write address from the calling code 
+   // (user code) and a called function (NachOs_Open())
+   // In MIPS: the regs 4 - 7 are used to pass arguments and data references in
+   // function calls
+
+  // Read the file address from reg 4
+  int fileAddr = machine->ReadRegister(4);
+  // Get the size of the filename from r5 register
+  int fileSizeBuff = machine->ReadRegister( 5 );
+
+  
+  // Get the file descriptor from r6 register
+  OpenFileId fileId = machine->ReadRegister(6);
+
+  char* readBuffer = new char[fileSizeBuff + 1];
+  memset(readBuffer, 0, fileSizeBuff + 1);
+  int charsRead = 0;
+
+  // Add sempahaore just one read per time
   semConsole->P();
-  switch (descriptor) {
+  switch (fileId) {
     case ConsoleInput:
-      while (charReaded < size) {
-        int value = getchar();
-        if (value == EOF) {
+      while (charsRead < fileSizeBuff) {
+        int charRead = getchar();
+        if (charRead == EOF) {
           break;
         }
-        readBuffer[charReaded] = (char) value;
-        charReaded++;
+        readBuffer[charsRead] = reinterpret_cast<char&>(charRead);
+        charsRead++;
       }
-      for (int i = 0; i < size || i < (int) strnlen(readBuffer, size) || readBuffer[i] != 0; i++) {
-        machine->WriteMem(bufferAddr + i, 1, readBuffer[i]);
+      for (int i = 0; i < fileSizeBuff || i < (int) strnlen(readBuffer, fileSizeBuff) || readBuffer[i] != 0; i++) {
+        machine->WriteMem(fileAddr + i, 1, readBuffer[i]);
       }
       machine->WriteRegister(2, strlen(readBuffer));
       stats->numConsoleCharsRead += strlen(readBuffer);
       break;
     case ConsoleOutput:
-      machine->WriteRegister(2, -1);
+      machine->WriteRegister(2, -1); // Error
       break;
     default:
-      // Verifica si el archivo está abierto
-      if (nachosOpenFilesTable->isOpened(descriptor)) { // currentThread->openFilesTable->isOpened(descriptor)
-        int unixHandle = nachosOpenFilesTable->getUnixHandle(descriptor);
-        // Lee apartir del unixHandle y lo almacena en readBuffer
-        int bytes = read(unixHandle, readBuffer, size);
-        // Escribe el contenido de readBuffer a la memoria.
+      // Validate if the file is opened
+      if (nachosOpenFilesTable->isOpened(fileId)) {
+        // Get the unix handle from the nachos open files table
+        int unixHandle = nachosOpenFilesTable->getUnixHandle(fileId);
+        
+        // Call the unix syscall to read the file and return the number of
+        int bytes = read(unixHandle, readBuffer, fileSizeBuff);
+        
+        // Write the number of bytes read to the memory
         for (int charPos = 0; charPos < bytes; charPos++) {
-          machine->WriteMem(bufferAddr + charPos, 1, readBuffer[charPos]);
+          machine->WriteMem(fileAddr + charPos, 1, readBuffer[charPos]);
         }
+        // Write the number of bytes read to r2
         machine->WriteRegister(2, bytes);
-        stats->numDiskReads += size;
+        stats->numDiskReads += fileSizeBuff; // Update the stats
       } else {
         machine->WriteRegister(2, -1);
       }
       break;
   }
 
+  // Release the semaphore
   semConsole->V();
-  // printf("READ termina\n");
   returnFromSystemCall();	
 }
 
@@ -399,24 +480,29 @@ void NachOS_Read() {		// System call 7
  *  System call interface: void Close( OpenFileId )
  */
 void NachOS_Close() {		// System call 8
-  // printf("CLOSE empieza\n");
-  int file_id = machine->ReadRegister(4);
-  if (file_id < 0 || file_id  >= (int) nachosOpenFilesTable->getUsage()) {
-    DEBUG('a', "Error: Null pointer exception\n");
-  } else {
-    int nachosHandle = nachosOpenFilesTable->Close(file_id);
-    if (nachosHandle == -1) {
+  DEBUG ('f', "Entering close  syscall...\n");
+
+  int fileAddr = machine->ReadRegister(4);
+
+  // Validate if the file is opened
+  // Check if valid 
+   if(!(currentThread->openFiles->openFilesMap->Test(fileAddr))) {
+      DEBUG('a', "Error: invalid.\n");
+      // Write the error to r2
       machine->WriteRegister(2, -1);
-    } else {
-      int unixHandle = close(nachosHandle);
-      DEBUG('a', "Closing file %d\n", file_id);
-      if (unixHandle != 0) {
-        machine->WriteRegister(2, -1);
-      } else {
-        machine->WriteRegister(2, 1);
+   } else {
+      // Get the unix handle of the file from the table
+      int unixHandle = currentThread->openFiles->getUnixHandle(fileAddr);
+      // Use unix syscall to close the file
+      int closeHandle = close(unixHandle);
+      
+      // Check if the file was closed successfully 
+      if (currentThread->openFiles->Close(fileAddr) == 1) {
+         // succes
+         DEBUG('a', "File closed successfully.\n");
       }
-    }
-  }
+      machine->WriteRegister(2, closeHandle);
+   }
 
   // printf("CLOSE termina\n");
   returnFromSystemCall();	
@@ -449,24 +535,20 @@ void NachosForkThread( void * p ) { // for 64 bits version
 void NachOS_Fork() {		// System call 9
   DEBUG( 'u', "Entering Fork System call\n" );
   // We need to create a new kernel thread to execute the user thread
-  Thread * newT = new Thread( "child to execute Fork code" );
+  Thread * child = new Thread( "Kernel child" );
 
   // We need to share the Open File Table structure with this new child
-  newT->openFilesTable = currentThread->openFilesTable;
+  child->openFiles = currentThread->openFiles;
 
   // Child and father will also share the same address space, except for the stack
   // Text, init data and uninit data are shared, a new stack area must be created
   // for the new child
-  /* ************* newT->stack = new HostMemoryAddress(); *************/
-  // We suggest the use of a new constructor in AddrSpace class,
-  // This new constructor will copy the shared segments (space variable) from currentThread, passed
-  // as a parameter, and create a new stack for the new child
-  newT->space = new AddrSpace( currentThread->space );
+  child->space = new AddrSpace( currentThread->space );
 
   // We (kernel)-Fork to a new method to execute the child code
   // Pass the user routine address, now in register 4, as a parameter
   // Note: in 64 bits register 4 need to be casted to (void *)
-  newT->Fork( NachosForkThread, (void *) machine->ReadRegister( 4 ) );
+  child->Fork( NachosForkThread, reinterpret_cast<void*>(machine->ReadRegister( 4 )) );
 
   DEBUG( 'u', "Exiting Fork System call\n" );
   returnFromSystemCall();
@@ -598,7 +680,7 @@ void NachOS_Socket() {			// System call 30
   socketType = (socketType == SOCK_STREAM_NachOS) ? SOCK_DGRAM : SOCK_STREAM;  
 
   int idSocket = socket(isIpPv6, socketType, 0);
-  int fd = currentThread->openFilesTable->Open(idSocket);
+  int fd = currentThread->openFiles->Open(idSocket);
   machine->WriteRegister(2, fd);
 
   if (isIpPv6 == AF_INET6) {
@@ -625,7 +707,7 @@ void NachOS_Connect() {		// System call 31
     }
   }
 
-  int fd = currentThread->openFilesTable->getUnixHandle(idSocket);
+  int fd = currentThread->openFiles->getUnixHandle(idSocket);
   auto it = socketMap.find(fd);
 
   int st = 0;

@@ -65,8 +65,6 @@ class Semaphore {
 // may release it.  As with semaphores, you can't read the lock value
 // (because the value might change immediately after you read it).  
 
-//! El unico que puede liberar el lock es el hilo que hizo el lock
-//! No se pueden apagar las int como los sem? usar acceso exclusivo con sems
 class Lock {
   public:
     Lock(const char* debugName);  		// initialize lock to be FREE
@@ -75,8 +73,7 @@ class Lock {
 
     void Acquire(); // these are the only operations on a lock
     void Release(); // they are both *atomic*
-    //! si el lock esta adquirido por el hilo actual, por ejemplo si un hilo tiene un lock no puede hacer lock de nuevo
-    //! Si esta retenido por el hilo actual
+
     bool isHeldByCurrentThread();	// true if the current thread
 					// holds this lock.  Useful for
 					// checking in Release, and in
@@ -84,9 +81,9 @@ class Lock {
 
   private:
     char* name;				// for debugging
-    int value;			// semaphore value, always >= 0
-    List<Thread*> *queue;	
-    Thread* currentThreadHolder;
+    // plus some other stuff you'll need to define
+    Thread * owner;
+    Semaphore * sem;
 };
 
 // The following class defines a "condition variable".  A condition
@@ -120,37 +117,29 @@ class Lock {
 // The consequence of using Mesa-style semantics is that some other thread
 // can acquire the lock, and change data structures, before the woken
 // thread gets a chance to run.
-//! Un uso posible: prod const, si no hay cosas producidas, el consumidor debe esperar hasta que el productor produzca algo, 
-//! en ese caso el productor envia una senial de que ya termino a traves del signal
+
 class Condition {
   public:
     Condition(const char* debugName);		// initialize condition to 
 					// "no one waiting"
     ~Condition();			// deallocate the condition
     char* getName() { return (name); }
-    //! Si tengo el lock, wait libera el lock y bloquea el proceso actual hasta que esa condicion logica se cumpla 22:50
+    
     void Wait(Lock *conditionLock); 	// these are the 3 operations on 
 					// condition variables; releasing the 
 					// lock and going to sleep are 
 					// *atomic* in Wait()
-    //! Quien dice que esa condicion logica se cumplio? SIGNAL
-    //! si hay algun proceso que haya estado haciendo wait lo despierta, sino, no hace ningun efecto
     void Signal(Lock *conditionLock);   // conditionLock must be held by
-    //! Es un signal que levanta a todos los procesos que pueden estar durmiendo
-    //! Por ejemplo si un productor produce de 10 en 10, y quiere despertar a los consumidores que estaban en wait 25:10
     void Broadcast(Lock *conditionLock);// the currentThread for all of 
 					// these operations
 
   private:
     char* name;
     // plus some other stuff you'll need to define
-    List<Semaphore*> *queue;
-    /*Debido a los cambios de contexto, despues de un wait no me garantiza que la condicion sea valida, por ejemplo, que haya
-    items para consumir */
+    List<Thread*> *queue;
+    Lock * lock;
 };
-/*
-TODO: Wait necesita un semaforo por cada hilo que hace wait?
-*/
+
 
 // The following class define a Mutex, a binary semaphore initialized in 1
 // Can be used by Lock and Unlock methods
@@ -163,6 +152,8 @@ class Mutex {
    private:
       char * name;
       // plus some other stuff you'll need to define
+      Thread * owner;
+      Semaphore * sem;
 };
 
 
@@ -176,6 +167,10 @@ class Barrier {
    private:
       char * name;
       // plus some other stuff you'll need to define
+      int count;
+      Semaphore * sem;
+      Semaphore * mutex;
+      int arrived;
 };
 
 #endif // SYNCH_H
