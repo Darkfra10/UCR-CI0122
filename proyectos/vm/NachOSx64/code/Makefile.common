@@ -75,20 +75,18 @@ THREAD_O =main.o scheduler.o synch.o system.o thread.o \
 USERPROG_H = ../userprog/addrspace.h\
 	../userprog/bitmap.h\
 	../userprog/nachosOpenFilesTable.h\
-	../userprog/coremap.h\
 	../filesys/filesys.h\
 	../filesys/openfile.h\
 	../machine/console.h\
 	../machine/machine.h\
 	../machine/mipssim.h\
-	../machine/translate.h\
+	../machine/translate.h
 
 USERPROG_C = ../userprog/addrspace.cc\
 	../userprog/bitmap.cc\
 	../userprog/exception.cc\
 	../userprog/progtest.cc\
 	../userprog/nachosOpenFilesTable.cc\
-	../userprog/coremap.cc\
 	../machine/console.cc\
 	../machine/machine.cc\
 	../machine/mipssim.cc\
@@ -146,5 +144,3 @@ depend: $(CFILES) $(HFILES)
 	echo '# DEPENDENCIES MUST END AT END OF FILE' >> Makefile
 	echo '# IF YOU PUT STUFF HERE IT WILL GO AWAY' >> Makefile
 	echo '# see make depend above' >> Makefile
-clean:
-	rm -f *.o *.out

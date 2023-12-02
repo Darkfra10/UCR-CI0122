@@ -29,8 +29,8 @@ print:
 	$(SH) -c "$(LPR) Makefile* */Makefile"
 	$(SH) -c "$(LPR) threads/*.h threads/*.cc threads/*.s"
 	$(SH) -c "$(LPR) userprog/*.h userprog/*.cc" 
-	$(SH) -c "$(LPR) filesys/*.h filesys/*.cc
-	$(SH) -c "$(LPR) network/*.h network/*.cc 
-	$(SH) -c "$(LPR) machine/*.h machine/*.cc
+	$(SH) -c "$(LPR) filesys/*.h filesys/*.cc"
+	$(SH) -c "$(LPR) network/*.h network/*.cc"
+	$(SH) -c "$(LPR) machine/*.h machine/*.cc"
 	$(SH) -c "$(LPR) bin/noff.h bin/coff.h bin/coff2noff.c"
 	$(SH) -c "$(LPR) test/*.h test/*.c test/*.s"

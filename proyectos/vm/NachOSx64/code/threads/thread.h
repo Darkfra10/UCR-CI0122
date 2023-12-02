@@ -123,7 +123,7 @@ class Thread {
   public:
     void SaveUserState();		// save user-level register state
     void RestoreUserState();		// restore user-level register state
-    NachosOpenFilesTable* openFilesTable;
+    NachosOpenFilesTable* openFiles;
     AddrSpace* space;			// User code this thread is running.
 
     int id;  // id of each thread

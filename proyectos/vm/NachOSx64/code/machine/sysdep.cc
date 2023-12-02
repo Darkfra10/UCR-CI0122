@@ -142,7 +142,6 @@ void
 Read(int fd, char *buffer, int nBytes)
 {
     int retVal = read(fd, buffer, nBytes);
-    printf("333333333\n");
     ASSERT(retVal == nBytes);
 }
 

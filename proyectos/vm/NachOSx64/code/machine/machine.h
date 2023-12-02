@@ -24,14 +24,14 @@
 #include "copyright.h"
 #include "utility.h"
 #include "translate.h"
-#include "disk.h"
 #include "swap.h"
+#include "disk.h"
 
 // Definitions related to the size, and format of user memory
 
 const int PageSize = SectorSize; 	// set the page size equal to
 					// the disk sector size, for
-					// simplicity
+					// simplicity (128 bytes)
 
 const int NumPhysPages = 32;
 const int MemorySize = NumPhysPages * PageSize; // 128 * 32 = 4096 bytes

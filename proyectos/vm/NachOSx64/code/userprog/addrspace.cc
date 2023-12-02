@@ -75,29 +75,28 @@ AddrSpace::AddrSpace(OpenFile *executable)
 						// to leave room for the stack
     numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
-    // ASSERT(numPages <= (unsigned int) freeFramesMap->NumClear()); // check we're not trying
+    ASSERT(numPages <= (unsigned int) memoryMap->NumClear());
 						// to run anything too big --
 						// at least until we have
 						// virtual memory
 
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
-// first, set up the translation 
+
+    // first, set up the translation 
     pageTable = new TranslationEntry[numPages]; // !CREATE THE PAGE TABLE
     for (i = 0; i < numPages; i++) {
-	    pageTable[i].virtualPage = i;	// Virtual page is unique per process
+        pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
         #ifdef VM
             pageTable[i].valid = false; // For vm, the pages are not valid cause they are not in memory
             pageTable[i].physicalPage = -1; // -1 means that the page is not in memory
         #else
-            pageTable[i].physicalPage = freeFramesMap->Find(); // the location is the position within the bitmap
+            pageTable[i].physicalPage = memoryMap->Find(); // the location is the position within the bitmap this allow us to a program doesn't use the same physical page
             pageTable[i].valid = true; // They are valid when we don't use vm cause they are in memory
         #endif
         pageTable[i].use = false; // It is true if the page has been assigned to the main memory or the disk
         pageTable[i].dirty = false; // True only if it has been written
-        pageTable[i].readOnly = false;  // if the code segment was entirely on 
-                        // a separate page, we could set its 
-                        // pages to be read-only
+        pageTable[i].readOnly = false;  // if the code segment was entirely on a separate page, we could set its pages to be read-only
     }
 
     // Create TLB only if we are using vm
@@ -107,70 +106,86 @@ AddrSpace::AddrSpace(OpenFile *executable)
             tlb[i].valid = false;
         }
     #endif
-    
-    // // zero out the entire address space, to zero the unitialized data segment 
-    // // and the stack segment
-    //bzero(machine->mainMemory, size);
 
+    // LOAD CODE AND DATA SEGMENT FROM THE EXE FILE INTO THE MAIN MEMORY
+    // then, copy in the code and data segments into memory
 
-    // TODO: IN VIRTUAL MEMORY, THE CODE SEGMENT AND DATA SEGMENT ARE NOT LOADED IN MEMORY
-    // CODE SEGMENT
-    /*
-        unsigned int cantPageCodeSeg = divRoundUp (noffH.code.size, PageSize);
+    // Code segment
+    // unsigned int cantPagUsadas_CodeSeg = divRoundUp (noffH.code.size, PageSize);
+
+    #ifndef VM
+        unsigned int codeSegmentPages = divRoundUp(noffH.code.size, PageSize);
         if (noffH.code.size > 0) {
             DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
                 noffH.code.virtualAddr, noffH.code.size);
-            for (unsigned int o = 0; o < cantPageCodeSeg; ++o) {
-                int page = pageTable[o].physicalPage;
-                executable->ReadAt (& (machine->mainMemory[page * PageSize]), PageSize, (PageSize * o + noffH.code.inFileAddr));
+            
+            // Go through the pages assigned to the executable, get the physical address and copy the CS
+            for (unsigned int offset = 0; offset < codeSegmentPages; ++offset) {
+
+                //  Get the physical address of the page
+                int page = pageTable[offset].physicalPage;
+
+                // Read the code segment data from the exevutable and copy it to the main memory
+                // The offset is the number of pages used by the code segment times the size of a page
+                // executable->ReadAt (& (machine->mainMemory[page * PageSize]), PageSize, (PageSize * offset + noffH.code.inFileAddr));
+                executable->ReadAt (& (machine->mainMemory[page * PageSize]), 
+                                PageSize,
+                                ( (PageSize * offset) + noffH.code.inFileAddr));
             }
         }
-        // DATA SEGMENT
-        unsigned int cantPageDataSeg = divRoundUp (noffH.initData.size, PageSize);
+        // unsigned int cantPagUsadas_DataSeg = divRoundUp (noffH.initData.size, PageSize);
+        unsigned int dataSegmentPages = divRoundUp(noffH.initData.size, PageSize);
         if (noffH.initData.size > 0) {
             DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
                 noffH.initData.virtualAddr, noffH.initData.size);
-            for (unsigned int o = cantPageCodeSeg; o < cantPageDataSeg; ++o) {
-                int page = pageTable[o].physicalPage;
-                executable->ReadAt (& (machine->mainMemory[page * PageSize]), PageSize, (PageSize * o + noffH.initData.inFileAddr));
+            
+            // Go through the pages assigned to the executable, get the physical address and copy the DS
+            //
+            for (unsigned int offset = codeSegmentPages; offset < dataSegmentPages; ++offset) {
+                int page = pageTable[offset].physicalPage;
+                executable->ReadAt (& (machine->mainMemory[page * PageSize]),
+                                PageSize, 
+                                ( (PageSize * offset) + noffH.initData.inFileAddr));
             }
         }
-    */
+    #endif
 }
-/**`
-*Constructor para hacer copia de un AddrSpace que recibe un addrspace
-*
-*/
 
+/**
+ * @brief To copy the shared space segment between the child and father, but 
+ * create new stack
+ * 
+ * @param space  The address space of the father
+ */
 AddrSpace::AddrSpace(AddrSpace* space) {
     this->tlbCounter = 0;
+    // copy the number of pages of the father to the child
     numPages = space->numPages;
+
+    // create a new page table for the child
     pageTable = new TranslationEntry[numPages];
 
     // size shared is the all sectors minus the stack
-    unsigned int size = numPages - divRoundUp(UserStackSize, PageSize);
-    unsigned int i = 0;
-
-    // set as shared the code and data segments
-    for (; i < size; i++) {
-        pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-        pageTable[i].physicalPage = space->pageTable[i].physicalPage; // the location is the position within the bitmap
-        pageTable[i].valid = space->pageTable[i].valid;
-        pageTable[i].use = space->pageTable[i].use;
-        pageTable[i].dirty = space->pageTable[i].dirty;
-        pageTable[i].readOnly = false;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
+    unsigned int sharedMemorySize = numPages - divRoundUp(UserStackSize, PageSize);
+    unsigned int index = 0; // index to go through the pages.
+     // share the text & data segments between father and child address spaces
+    for (; index < sharedMemorySize; index++) {
+        pageTable[index].virtualPage = index;	// for now, virtual page # = phys page #
+        pageTable[index].physicalPage = space->pageTable[index].physicalPage; // the location is the position within the bitmap they share the same physical page
+        pageTable[index].valid = true;
+        pageTable[index].use = false;
+        pageTable[index].dirty = false;
+        pageTable[index].readOnly = false;
     }
 
-    // allocate new space for the stack
-    for (; i < this->numPages; i++) {
-        pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-        pageTable[i].physicalPage = freeFramesMap->Find(); // the location is the position within the bitmap
-        pageTable[i].valid = true;
-        pageTable[i].use = false;
-        pageTable[i].dirty = false;
-        pageTable[i].readOnly = false;  // if the code segment was entirely on 
+    // Go through each page to allocate memory for the child's adress space
+    for (; index < this->numPages; index++) {
+        pageTable[index].virtualPage = index;	// for now, virtual page # = phys page #
+        pageTable[index].physicalPage = memoryMap->Find(); // Find free space to assign to the physical page
+        pageTable[index].valid = true;
+        pageTable[index].use = false;
+        pageTable[index].dirty = false;
+        pageTable[index].readOnly = false;  // if the code segment was entirely on 
 					// a separate page, we could set its 
 					// pages to be read-only
     }
@@ -180,11 +195,14 @@ AddrSpace::AddrSpace(AddrSpace* space) {
 // 	Dealloate an address space.  Nothing for now!
 //----------------------------------------------------------------------
 
-AddrSpace::~AddrSpace() {
+AddrSpace::~AddrSpace()
+{
+    // Clear the memory map
     for (unsigned int page = 0; page < this->numPages; page++) {
-        freeFramesMap->Clear(this->pageTable[page].physicalPage);
+        memoryMap->Clear(this->pageTable[page].physicalPage);
     }
    delete pageTable;
+
 }
 
 //----------------------------------------------------------------------
@@ -198,7 +216,8 @@ AddrSpace::~AddrSpace() {
 //----------------------------------------------------------------------
 
 void
-AddrSpace::InitRegisters() {
+AddrSpace::InitRegisters()
+{
     int i;
 
     for (i = 0; i < NumTotalRegs; i++)
@@ -250,8 +269,7 @@ void AddrSpace::RestoreState() {
 #ifndef VM
     machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
-#endif
-#ifdef VM
+#else 
     machine->pageTable = NULL; // We don't need the page table in memory
     // each process has its own page table
     machine->tlb = tlb; // We need the tlb in memory
@@ -280,7 +298,7 @@ int AddrSpace::getPA(int vpn) {
     // TODO:
 
     // Ask if there is a free frame
-    int frame = freeFramesMap->Find();
+    int frame = memoryMap->Find();
 
     // !THERE IS A FREE FRAME AND IS NOT IN THE SWAP MEMORY
     if (frame != -1 && pageTable[vpn].physicalPage == -1) { // Find free memory and the page is not in the swap memory

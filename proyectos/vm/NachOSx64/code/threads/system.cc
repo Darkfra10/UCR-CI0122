@@ -36,7 +36,7 @@ SynchDisk   *synchDisk;
 #include "nachosOpenFilesTable.h"
 Machine *machine;	// user program memory and registers
 NachosOpenFilesTable* nachosOpenFilesTable = new NachosOpenFilesTable();
-BitMap* freeFramesMap = new BitMap(NumPhysPages);
+BitMap* memoryMap = new BitMap(NumPhysPages);
 Semaphore* semConsole = new Semaphore("name", 1); // semaphore for console program
 #endif
 

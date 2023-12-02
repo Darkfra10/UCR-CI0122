@@ -24,7 +24,6 @@
 #include "copyright.h"
 #include "synch.h"
 #include "system.h"
-#include <iostream>
 
 //----------------------------------------------------------------------
 // Semaphore::Semaphore
@@ -38,7 +37,6 @@ Semaphore::Semaphore(const char* debugName, int initialValue)
 {
     name = (char *)debugName;
     value = initialValue;
-    //! Esta lista contiene todos los hilos que estan dormidos en este semaforo
     queue = new List<Thread*>;
 }
 
@@ -66,22 +64,15 @@ Semaphore::~Semaphore()
 void
 Semaphore::P()
 {
-    //! deshabilita las interrupciones, esto para poder tocar valores sin que ningun otro hilo se entrometa
     IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
     
-    //! si el semaforo esta en cero
     while (value == 0) { 			// semaphore not available
-        //! Poner a dormir al hilo que quiso decrementar el semaforo
-        queue->Append(currentThread);		// so go to sleep
-        //! "dormir" para el hilo al estado bloqueado hasta que otro hilo lo desbloquee
-        //! "desbloquearlo" es pasarlo de nuevo a la lista de procesos listos.
-        currentThread->Sleep();
+	queue->Append(currentThread);		// so go to sleep
+	currentThread->Sleep();
     } 
-    //! cuando un semaforo es mayor a cero lo podemos decrementar
     value--; 					// semaphore available, 
 						// consume its value
-    //! Se deshabilitan las interrupciones para estar seguros de que no habra un cambio de contexto 
-    //! mientras se ejecuta esta funcion
+    
     interrupt->SetLevel(oldLevel);		// re-enable interrupts
 }
 
@@ -93,20 +84,17 @@ Semaphore::P()
 //	are disabled when it is called.
 //----------------------------------------------------------------------
 
-//! Lo que puede desbloquear a los hilos bloqueados es subir el semaforo
 void
 Semaphore::V()
 {
     Thread *thread;
-    //! Aca sea deshabilitan las interrupciones nuevamente
-    IntStatus oldLevel = interrupt->SetLevel(IntOff);
-    //! Remove es equivalente a Pop en la cola
+    IntStatus oldLevel = interrupt->SetLevel(IntOff); // disable interrupts
+
     thread = queue->Remove();
-    //! Si habia algo en la cola, toma el hilo bloqueado y lo pone en el estado "listo"
     if (thread != NULL)	   // make thread ready, consuming the V immediately
-	    scheduler->ReadyToRun(thread);
+	scheduler->ReadyToRun(thread);
     value++;
-    interrupt->SetLevel(oldLevel);
+    interrupt->SetLevel(oldLevel); // re-enable interrupts
 }
 
 #ifdef USER_PROGRAM
@@ -135,136 +123,127 @@ Semaphore::Destroy()
 // Note -- without a correct implementation of Condition::Wait(), 
 // the test case in the network assignment won't work!
 Lock::Lock(const char* debugName) {
-    name = (char *)debugName;
-    value = 1; // Porque es un lock
-    //! Esta cola contiene los hilos que estan dormidos en este lock
-    queue = new List<Thread*>;
-    currentThreadHolder = NULL;
+    this->name = const_cast<char*>(debugName);
+    this->owner = NULL;
+    this->sem = new Semaphore(debugName, 1);
+
 }
 
 
 Lock::~Lock() {
-    delete queue;
+    delete this->sem;
 }
 
-//! Wait
-void Lock::Acquire() {
-    //! deshabilita las interrupciones, esto para poder tocar valores sin que ningun otro hilo se entrometa
-    IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
-    
-    while (value == 0) {
-        queue->Append(currentThread);		// so go to sleep
-        currentThread->Sleep();
-    }
-    value--; // consume its value
-    //! Marcar al hilo actual como quien tiene el lock
-    this->currentThreadHolder = currentThread;
-    interrupt->SetLevel(oldLevel);		// re-enable interrupts
+
+void Lock::Acquire() {  
+    this->sem->P();
+    this->owner = currentThread;
 }
 
-//! Signal
+
 void Lock::Release() {
-    //! Solo el hilo que hizo lock puede hacer release
-    if(this->isHeldByCurrentThread()) {
-        IntStatus oldLevel = interrupt->SetLevel(IntOff);
-        Thread* Thread;
-        Thread = queue->Remove(); //! Pop
-        if (Thread != NULL) {
-            //! Mover al hilo actual al estado listo, de manera que un cambio de contexto pueda capturarlo
-            scheduler->ReadyToRun(Thread);
-        }
-        value++;
-        interrupt->SetLevel(oldLevel);		// re-enable interrupts
-    }
+    this->owner = NULL;
+    this->sem->V();
 }
 
 
 bool Lock::isHeldByCurrentThread() {
-   
-   if (this->currentThreadHolder == currentThread) {
-        return true;
-   }else {
-        return false;
-   }
-
+   return this->owner == currentThread;
 }
 
 
 Condition::Condition(const char* debugName) {
-    this->name = (char*) debugName;
-    queue = new List<Semaphore*>;
+    this->name = const_cast<char*>(debugName);
+    this->queue = new List<Thread*>;
+    this->lock = nullptr;
 }
 
 
+
 Condition::~Condition() {
-    delete queue;
+    delete this->queue;
 }
 
 
 void Condition::Wait( Lock * conditionLock ) {
-    if (conditionLock->isHeldByCurrentThread()) {
-        Semaphore* sem = new Semaphore("name", 0);
-        queue->Append(sem);
-        
-        conditionLock->Release();
-        // P decrementa
-        sem->P();
-
-        conditionLock->Acquire();
-        delete sem;
+    if (!conditionLock->isHeldByCurrentThread()) {
+        return;
     }
-    
+    IntStatus oldLevel = interrupt->SetLevel(IntOff); // disable interrupts
+    conditionLock->Release();
+    queue->Append(currentThread);
+    currentThread->Sleep();
+    conditionLock->Acquire();
+    interrupt->SetLevel(oldLevel); // re-enable interrupts
+
 }
 
 
 void Condition::Signal( Lock * conditionLock ) {
-    if (conditionLock->isHeldByCurrentThread()) {
-        Semaphore* sem;
-        if (!queue->IsEmpty()){
-            sem = queue->Remove();
-            sem->V();
-        }
-        
-    } else {
-        std::cout << "Error: signal" << std::endl;
+    if (!conditionLock->isHeldByCurrentThread()) {
+        return;
     }
-    
+    IntStatus oldLevel = interrupt->SetLevel(IntOff); // disable interrupts
+    Thread *thread;
+    thread = queue->Remove();
+    if (thread != NULL)	   // make thread ready, consuming the V immediately
+    scheduler->ReadyToRun(thread);
+    interrupt->SetLevel(oldLevel); // re-enable interrupts
 }
 
 
 void Condition::Broadcast( Lock * conditionLock ) {
-    while (!queue->IsEmpty()){
-        Signal(conditionLock);
-    }
-    
+    // Clear the queue
+   while (!queue->IsEmpty()) {
+       Signal(conditionLock);
+   }
 }
 
 
 // Mutex class
 Mutex::Mutex( const char * debugName ) {
-
+    this->name = const_cast<char*>(debugName);
+    this->owner = NULL;
+    this->sem = new Semaphore(debugName, 1);
 }
 
 Mutex::~Mutex() {
-
+    this->owner = NULL;
+    delete this->sem;
 }
 
 void Mutex::Lock() {
-
+    this->sem->P();
+    this->owner = currentThread;
 }
 
 void Mutex::Unlock() {
-
+    this->owner = NULL;
+    this->sem->V();
 }
 
 
 // Barrier class
-Barrier::Barrier( const char * debugName, int count ) {
+Barrier::Barrier( const char * debugName, int numThreads ) {
+    this->name = const_cast<char*>(debugName);
+    this->count = numThreads;
+    this->sem = new Semaphore(debugName, 0);
+    this->mutex = new Semaphore(debugName, 1);
+    this->arrived = 0;
 }
 
 Barrier::~Barrier() {
+    delete this->sem;
+    delete this->mutex;
 }
 
 void Barrier::Wait() {
+    this->mutex->P();
+    this->arrived++;
+    if (this->arrived == this->count) {
+        this->sem->V();
+    }
+    this->mutex->V();
+    this->sem->P();
 }
 

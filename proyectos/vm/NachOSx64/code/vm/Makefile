@@ -27,6 +27,9 @@ C_OFILES = $(THREAD_O) $(USERPROG_O) $(VM_O)
 
 include ../Makefile.common
 include ../Makefile.dep
+
+clean:
+	rm -f *.o *.d *~ *.a nachos
 #-----------------------------------------------------------------
 # DO NOT DELETE THIS LINE -- make depend uses it
 # DEPENDENCIES MUST END AT END OF FILE
