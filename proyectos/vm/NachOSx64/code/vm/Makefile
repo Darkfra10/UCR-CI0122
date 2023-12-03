@@ -29,7 +29,7 @@ include ../Makefile.common
 include ../Makefile.dep
 
 clean:
-	rm -f *.o *.d *~ *.a nachos
+	rm -f *.o *.d *~ *.a nachos nachos.*
 #-----------------------------------------------------------------
 # DO NOT DELETE THIS LINE -- make depend uses it
 # DEPENDENCIES MUST END AT END OF FILE

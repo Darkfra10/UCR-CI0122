@@ -171,11 +171,22 @@ AddrSpace::AddrSpace(AddrSpace* space) {
     // size shared is the all sectors minus the stack
     unsigned int sharedMemorySize = numPages - divRoundUp(UserStackSize, PageSize);
     unsigned int index = 0; // index to go through the pages.
-     // share the text & data segments between father and child address spaces
+    #ifdef VM
+        tlb = new TranslationEntry[TLBSize];
+        for (int i = 0; i < TLBSize; i++) {
+            tlb[i].valid = false;
+        }
+    #endif
+    // share the text & data segments between father and child address spaces
     for (; index < sharedMemorySize; index++) {
         pageTable[index].virtualPage = index;	// for now, virtual page # = phys page #
-        pageTable[index].physicalPage = space->pageTable[index].physicalPage; // the location is the position within the bitmap they share the same physical page
-        pageTable[index].valid = true;
+        #ifdef VM
+            pageTable[index].physicalPage = -1; // the location is the position within the bitmap they share the same physical page
+            pageTable[index].valid = false;
+        #else
+            pageTable[index].physicalPage = space->pageTable[index].physicalPage; // the location is the position within the bitmap they share the same physical page
+            pageTable[index].valid = true;
+        #endif
         pageTable[index].use = false;
         pageTable[index].dirty = false;
         pageTable[index].readOnly = false;
@@ -184,13 +195,18 @@ AddrSpace::AddrSpace(AddrSpace* space) {
     // Go through each page to allocate memory for the child's adress space
     for (; index < this->numPages; index++) {
         pageTable[index].virtualPage = index;	// for now, virtual page # = phys page #
-        pageTable[index].physicalPage = memoryMap->Find(); // Find free space to assign to the physical page
-        pageTable[index].valid = true;
+        #ifdef VM
+            pageTable[index].physicalPage = -1; // Find free space to assign to the physical page
+            pageTable[index].valid = false;
+        #else
+            pageTable[index].physicalPage = memoryMap->Find(); // Find free space to assign to the physical page
+            pageTable[index].valid = true;
+        #endif
         pageTable[index].use = false;
         pageTable[index].dirty = false;
         pageTable[index].readOnly = false;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
+                    // a separate page, we could set its 
+                    // pages to be read-only
     }
 }
 //----------------------------------------------------------------------
@@ -314,7 +330,7 @@ void AddrSpace::writeInMemory(int vpn, int frame) {
     // Read from init segment
     int bytesFromInitSegment = this->executable->ReadAt(&(machine->mainMemory[frame * PageSize]),
         PageSize, (  PageSize * vpn + noffH.initData.inFileAddr ));
-    std::cout << "\t\t\t\tHay" << bytesFromInitSegment << "bytes desde el init segment " << std::endl;
+    std::cout << "\t\t\t\tHay: " << bytesFromInitSegment << " bytes desde el init segment " << std::endl;
     if (bytesFromInitSegment != 0) {
         return;
     }
@@ -322,7 +338,7 @@ void AddrSpace::writeInMemory(int vpn, int frame) {
     int bytesFromUnInitSegment = this->executable->ReadAt(&(machine->mainMemory[frame * PageSize]),
         PageSize, (PageSize * vpn + noffH.uninitData.inFileAddr ));
     // printf("\t\t\t\tHay %d bytes desde el uninit segment\n", bytesFromUnInitSegment);
-    std::cout << "\t\t\t\tHay %d bytes desde el uninit segment\n" << bytesFromUnInitSegment << std::endl;
+    std::cout << "\t\t\t\tHay: " <<  bytesFromUnInitSegment << " bytes desde el uninit segment\n" << std::endl;
 }
 
 int AddrSpace::pageFaultHandler(int vpn) {

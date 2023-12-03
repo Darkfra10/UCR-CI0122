@@ -88,6 +88,7 @@ void NachOS_Halt() {		// System call 0
  */
 void NachOS_Exit() {		// System call 1
   DEBUG ('a', "Entering exit  syscall...\n");
+  std::cout << "Exit syscall" << std::endl;
 
   // Get the process data associated with the current thread
   currentProcess * processData = processTable[currentThread->id];
