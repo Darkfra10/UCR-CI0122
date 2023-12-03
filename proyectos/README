@@ -1,0 +1,71 @@
+# NachOs
+
+NachOS, which stands for Not Another Completely Heuristic Operating System, is an instructional operating system developed primarily for educational purposes. It was created by a team at the University of California, Berkeley, to provide a simplified and understandable platform for teaching operating system principles.
+
+NachOS serves as a practical tool for learning various aspects of operating systems, including process management, thread synchronization, memory management, and file systems. It provides a clean and modular codebase designed to help students grasp fundamental OS concepts and principles by working with a real-world operating system.
+
+It has the following features:
+
+1. **Process Management:** NachOS allows users to create, manage, and control multiple processes and threads within the operating system.
+
+2. **Thread Synchronization:** It provides synchronization mechanisms such as semaphores and locks for handling concurrent execution of processes.
+
+3. **Memory Management:** NachOS supports virtual memory to explore concepts related to paging, demand paging, and memory allocation.
+
+4. **File Systems:** It includes a simple file system that enables users to perform basic file operations like creating, reading, writing, and deleting files.
+
+5. **Network Communication:** NachOS can be extended to incorporate network communication for teaching networked operating system concepts.
+
+## User Manual
+
+### System Requirements
+
+- Operating system that supports Linux and x86-64 architecture.
+- C++ compiler.
+
+### Program Compilation and Execution
+
+1. Open a terminal in the directory where the source code is stored.
+
+2. Choose a folder you want to use from the following options this project stage only allows the following folders to be used:
+    - threads
+    - userprog
+    - vm
+3. Run the following commands to compile and execute the program:
+
+        make depend
+        make
+        ./nachos
+    This commands has to be run inside each folder (threads, userprog, vm) to compile the files.
+4. To run a specific test, run the following command:
+
+        ./nachos -x ../test/<test_name>
+5. The test can be run inside the userprog folder and the vm folder.
+
+        ./nachos -x ../test/addrspacetest
+
+6. Clean the .o files and executables using the following command:
+
+        make clean
+    This commands has to be run inside each folder (threads, userprog, vm) to clean the files.
+
+6. The folder **_/test_** contains the .c files that are meant to be tested. Depending on the test you want to run, change the name at the end of the third command.
+
+
+7. The program will generate the output messages in the terminal, indicating the corresponding output for each test that is run. 
+
+8. The program automatically closes after the execution is over.
+
+### Implementation 
+
+They are 3 main parts of the code that are implemented in this project stage:
+
+
+1. System calls
+    All the system calls where impelemented in the userprog folder in the exception.cc file.
+    The exceptions needed go from 1 to 10, and other more were implemented to if needed.
+
+2. Process management
+    All the process management was implemented in the userprog folder in the userprog and for nachos could run multiple processes at the same time the addrspace.cc and addrspace.h files were modified. Exist for both virtual memory and userprog that doesn't use virtual memory.
+3. Virtual memory
+    All the virtual memory was implemented in the userprog folder, and to manage the virtual memory a class swap was created that handles the swap file and the swap table
