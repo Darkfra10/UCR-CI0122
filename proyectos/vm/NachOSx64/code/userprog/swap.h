@@ -1,12 +1,9 @@
 #ifndef SWAP_H
 #define SWAP_H
 
-#include "machine.h"
 #include "openfile.h"
 #include "bitmap.h"
 #include "addrspace.h"
-
-#include <array>
 
 class Swap {
   public:

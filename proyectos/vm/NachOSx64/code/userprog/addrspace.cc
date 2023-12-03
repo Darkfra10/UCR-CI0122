@@ -75,10 +75,13 @@ AddrSpace::AddrSpace(OpenFile *executable)
 						// to leave room for the stack
     numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
+
+    #ifndef VM
     ASSERT(numPages <= (unsigned int) memoryMap->NumClear());
 						// to run anything too big --
 						// at least until we have
 						// virtual memory
+    #endif
 
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
@@ -99,7 +102,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
         pageTable[i].readOnly = false;  // if the code segment was entirely on a separate page, we could set its pages to be read-only
     }
 
-    // Create TLB only if we are using vm
+    // !Create TLB only if we are using vm
     #ifdef VM
         tlb = new TranslationEntry[TLBSize];
         for (i = 0; i < TLBSize; i++) {
@@ -113,6 +116,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
     // Code segment
     // unsigned int cantPagUsadas_CodeSeg = divRoundUp (noffH.code.size, PageSize);
 
+    // TODO: IN VIRTUAL MEMORY, THE CODE SEGMENT AND DATA SEGMENT ARE NOT LOADED IN MEMORY
     #ifndef VM
         unsigned int codeSegmentPages = divRoundUp(noffH.code.size, PageSize);
         if (noffH.code.size > 0) {
@@ -161,7 +165,6 @@ AddrSpace::AddrSpace(AddrSpace* space) {
     this->tlbCounter = 0;
     // copy the number of pages of the father to the child
     numPages = space->numPages;
-
     // create a new page table for the child
     pageTable = new TranslationEntry[numPages];
 
@@ -201,8 +204,7 @@ AddrSpace::~AddrSpace()
     for (unsigned int page = 0; page < this->numPages; page++) {
         memoryMap->Clear(this->pageTable[page].physicalPage);
     }
-   delete pageTable;
-
+    delete pageTable;
 }
 
 //----------------------------------------------------------------------
@@ -332,10 +334,19 @@ int AddrSpace::getPA(int vpn) {
         return pa;
     }
     // We need to swap
-
     // !NO FREE FRAMES AND THE PAGE IS IN THE SWAP MEMORY
     if (frame == -1 && pageTable[vpn].physicalPage != -1) { // !NO FREE FRAMES AND THE PAGE IS IN THE SWAP MEMORY
-        
+        if (frame == -1 && pageTable[vpn].physicalPage != -1) { // !NO FREE FRAMES AND THE PAGE IS IN THE SWAP MEMORY
+            // find page to put in swap (victim)
+            // int virtualToSwap = swap->findPageToSwap();
+            // Save page in memory to place new Page
+            // int tempMemPage = this->pageTable[virtualToSwap].physicalPage;
+            // if (this->pageTable[virtualToSwap].dirty) {
+                // swap->movePageToSwap(virtualToSwap, tempMemPage);
+            // }
+            // Load new page in memory
+            // this->pageTable[vpn].physicalPage = tempMemPage;
+        }
     }
 
     // !NO FREE FRAMES AND THE PAGE IS NOT IN THE SWAP MEMORY

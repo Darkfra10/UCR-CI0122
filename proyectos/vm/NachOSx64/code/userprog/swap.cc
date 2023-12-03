@@ -4,7 +4,6 @@ Swap::Swap(){
   this->size = NumPhysPages * 2; // 2 * 32 = 64 pages
   this->swapFile = fileSystem->Open("Swap");
   this->swapMap = new BitMap(size);
-  this->space = currentThread->space;
 }
 
 Swap::~Swap() {
