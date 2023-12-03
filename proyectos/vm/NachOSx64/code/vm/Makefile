@@ -2570,9 +2570,9 @@ progtest.o: ../userprog/progtest.cc /usr/include/stdc-predef.h \
  /usr/include/c++/11/bits/istream.tcc ../threads/scheduler.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../threads/synch.h \
- ../machine/console.h ../threads/synch.h
+ ../machine/console.h ../threads/synch.h ../userprog/swap.h
 swap.o: ../userprog/swap.cc /usr/include/stdc-predef.h ../userprog/swap.h \
- ../machine/machine.h ../threads/copyright.h ../threads/utility.h \
+ ../filesys/openfile.h ../threads/copyright.h ../threads/utility.h \
  ../threads/copyright.h ../machine/sysdep.h /usr/include/c++/11/stdlib.h \
  /usr/include/c++/11/cstdlib \
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
@@ -2630,10 +2630,10 @@ swap.o: ../userprog/swap.cc /usr/include/stdc-predef.h ../userprog/swap.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
  /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h /usr/include/string.h \
- /usr/include/strings.h ../machine/translate.h ../userprog/swap.h \
- ../machine/disk.h ../filesys/openfile.h ../userprog/bitmap.h \
- ../userprog/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
- ../machine/translate.h
+ /usr/include/strings.h ../userprog/bitmap.h ../userprog/addrspace.h \
+ ../filesys/filesys.h ../filesys/openfile.h ../machine/translate.h \
+ ../machine/machine.h ../machine/translate.h ../userprog/swap.h \
+ ../machine/disk.h
 nachosOpenFilesTable.o: ../userprog/nachosOpenFilesTable.cc \
  /usr/include/stdc-predef.h ../userprog/nachosOpenFilesTable.h \
  /usr/include/c++/11/iostream \
@@ -3003,9 +3003,9 @@ machine.o: ../machine/machine.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h /usr/include/string.h \
  /usr/include/strings.h ../machine/translate.h ../userprog/swap.h \
- ../machine/machine.h ../filesys/openfile.h ../userprog/bitmap.h \
- ../userprog/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
- ../machine/translate.h ../machine/disk.h ../threads/system.h \
+ ../filesys/openfile.h ../userprog/bitmap.h ../userprog/addrspace.h \
+ ../filesys/filesys.h ../filesys/openfile.h ../machine/translate.h \
+ ../machine/machine.h ../machine/disk.h ../threads/system.h \
  ../threads/utility.h ../threads/thread.h ../userprog/addrspace.h \
  ../userprog/nachosOpenFilesTable.h /usr/include/c++/11/iostream \
  /usr/include/c++/11/ostream /usr/include/c++/11/ios \
@@ -3161,9 +3161,9 @@ mipssim.o: ../machine/mipssim.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h /usr/include/string.h \
  /usr/include/strings.h ../machine/translate.h ../userprog/swap.h \
- ../machine/machine.h ../filesys/openfile.h ../userprog/bitmap.h \
- ../userprog/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
- ../machine/translate.h ../machine/disk.h ../machine/mipssim.h \
+ ../filesys/openfile.h ../userprog/bitmap.h ../userprog/addrspace.h \
+ ../filesys/filesys.h ../filesys/openfile.h ../machine/translate.h \
+ ../machine/machine.h ../machine/disk.h ../machine/mipssim.h \
  ../threads/system.h ../threads/utility.h ../threads/thread.h \
  ../userprog/addrspace.h ../userprog/nachosOpenFilesTable.h \
  /usr/include/c++/11/iostream /usr/include/c++/11/ostream \
@@ -3320,9 +3320,9 @@ translate.o: ../machine/translate.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h /usr/include/string.h \
  /usr/include/strings.h ../machine/translate.h ../userprog/swap.h \
- ../machine/machine.h ../filesys/openfile.h ../userprog/bitmap.h \
- ../userprog/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
- ../machine/translate.h ../machine/disk.h ../userprog/addrspace.h \
+ ../filesys/openfile.h ../userprog/bitmap.h ../userprog/addrspace.h \
+ ../filesys/filesys.h ../filesys/openfile.h ../machine/translate.h \
+ ../machine/machine.h ../machine/disk.h ../userprog/addrspace.h \
  ../threads/system.h ../threads/utility.h ../threads/thread.h \
  ../userprog/nachosOpenFilesTable.h /usr/include/c++/11/iostream \
  /usr/include/c++/11/ostream /usr/include/c++/11/ios \

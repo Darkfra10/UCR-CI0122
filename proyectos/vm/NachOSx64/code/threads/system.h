@@ -38,11 +38,6 @@ extern NachosOpenFilesTable* nachosOpenFilesTable;
 extern BitMap* memoryMap;
 #endif
 
-#ifdef VM
-#include "swap.h"
-extern Swap* swap;
-#endif
-
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB 
 #include "filesys.h"
 extern FileSystem  *fileSystem;

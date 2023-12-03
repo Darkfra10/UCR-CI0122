@@ -13,6 +13,7 @@
 #include "console.h"
 #include "addrspace.h"
 #include "synch.h"
+#include "swap.h"
 
 //----------------------------------------------------------------------
 // StartProcess
@@ -27,18 +28,39 @@ StartProcess(const char *filename)
     AddrSpace *space;
 
     if (executable == NULL) {
-	printf("Unable to open file %s\n", filename);
-	return;
+        printf("Unable to open file %s\n", filename);
+        return;
     }
     space = new AddrSpace(executable);    
-    currentThread->space = space;
 
+    
+    #ifdef VM
+        // Declare here the new swap file
+        Swap* swap = new Swap(NumPhysPages * 2);
+        fileSystem->Create("Swap", swap->size);
+        swap->swapFile = fileSystem->Open("Swap");
+        if (swap->swapFile == NULL) {
+            printf("Unable to open file %s\n", filename);
+            ASSERT(false);
+            return;
+        }
+        swap->machine = machine;
+        swap->space = space;
+
+        // Try to change it later
+        space->swap = swap;
+
+        std::cout << swap->size << std::endl;
+    #endif
+
+    currentThread->space = space;
     // !TODO: COMMENT THIS LINE CAUSE YES
     // delete executable;			// close file
 
     space->InitRegisters();		// set the initial register values
     // ! WHEN is VM enabled, TLB is initialized
     space->RestoreState();		// load page table register
+
 
     machine->Run();			// jump to the user progam
     ASSERT(false);			// machine->Run never returns;

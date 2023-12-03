@@ -18,7 +18,7 @@
 #include "copyright.h"
 #include "system.h"
 #include "addrspace.h"
-#include "noff.h"
+#include <iostream>
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -57,20 +57,20 @@ SwapHeader (NoffHeader *noffH)
 //	"executable" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
 
-AddrSpace::AddrSpace(OpenFile *executable)
+AddrSpace::AddrSpace(OpenFile *executableFile)
 {
     this->tlbCounter = 0;
-    NoffHeader noffH;
+    this->executable = executableFile;
     unsigned int i, size;
 
-    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
-    if ((noffH.noffMagic != NOFFMAGIC) && 
-		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
-    	SwapHeader(&noffH);
-    ASSERT(noffH.noffMagic == NOFFMAGIC);
+    executableFile->ReadAt((char *)&this->noffH, sizeof(this->noffH), 0);
+    if ((this->noffH.noffMagic != NOFFMAGIC) && 
+		(WordToHost(this->noffH.noffMagic) == NOFFMAGIC))
+    	SwapHeader(&this->noffH);
+    ASSERT(this->noffH.noffMagic == NOFFMAGIC);
 
     // how big is address space?
-    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
+    size = this->noffH.code.size + this->noffH.initData.size + this->noffH.uninitData.size 
 			+ UserStackSize;	// we need to increase the size
 						// to leave room for the stack
     numPages = divRoundUp(size, PageSize);
@@ -239,6 +239,18 @@ AddrSpace::InitRegisters()
     DEBUG('a', "Initializing stack register to %d\n", numPages * PageSize - 16);
 }
 
+
+TranslationEntry * AddrSpace::getPageTable() {
+    return pageTable;
+}
+
+TranslationEntry * AddrSpace::getTLB() {
+    return tlb;
+}
+
+unsigned int AddrSpace::getNumPages() {
+    return numPages;
+}
 //----------------------------------------------------------------------
 // AddrSpace::SaveState
 // 	On a context switch, save any machine state, specific
@@ -248,15 +260,7 @@ AddrSpace::InitRegisters()
 //----------------------------------------------------------------------
 // TODO: Review
 void AddrSpace::SaveState() {
-    for(int i = 0; i < TLBSize; i++) {
-        if(machine->tlb[i].valid) {
-            // TranslationEntry* entry = &machine->tlb[i];
-            // TranslationEntry* pageTable = currentThread->space->getPageTable();
-            // pageTable[entry->virtualPage].dirty = entry->dirty;
-            // pageTable[entry->virtualPage].use = entry->use;
-            // machine->tlb[i].valid = false;
-        }
-    }
+    this->tlb = machine->tlb;
 }
 
 //----------------------------------------------------------------------
@@ -280,78 +284,138 @@ void AddrSpace::RestoreState() {
 #endif
 }
 
-int AddrSpace::getPA(int vpn) {
+
+void AddrSpace::updateTLB(int virtualPage) {
+    // Update the tlb
+    this->tlb[tlbCounter%TLBSize].virtualPage = pageTable[virtualPage].virtualPage;
+    this->tlb[tlbCounter%TLBSize].physicalPage = pageTable[virtualPage].physicalPage;
+    this->tlb[tlbCounter%TLBSize].valid = true; // The page is in memory
+    this->tlbCounter++;
+}
+
+void AddrSpace::updatePT(int virtualPage, int physicalPage) {
+    pageTable[virtualPage].physicalPage = physicalPage;
+    pageTable[virtualPage].valid = true; // The page is in memory
+}
+
+void AddrSpace::writeInMemory(int vpn, int frame) {
+    // Read the code segment data from the exevutable and copy it to the main memory
+    // The offset is the number of pages used by the code segment times the size of a page
+
+    // Read from code segment
+    int bytesFromCodeSegment = this->executable->ReadAt(& (machine->mainMemory[frame * PageSize]), 
+                    PageSize,
+                    ( (PageSize * vpn) + noffH.code.inFileAddr));
+    if (bytesFromCodeSegment != 0) {
+        return;
+    }
+    // Read from init segment
+    int bytesFromInitSegment = this->executable->ReadAt(&(machine->mainMemory[frame * PageSize]),
+        PageSize, (  PageSize * vpn + noffH.initData.inFileAddr ));
+    std::cout << "\t\t\t\tHay" << bytesFromInitSegment << "bytes desde el init segment " << std::endl;
+    if (bytesFromInitSegment != 0) {
+        return;
+    }
+    // Read from uninit segment
+    int bytesFromUnInitSegment = this->executable->ReadAt(&(machine->mainMemory[frame * PageSize]),
+        PageSize, (PageSize * vpn + noffH.uninitData.inFileAddr ));
+    // printf("\t\t\t\tHay %d bytes desde el uninit segment\n", bytesFromUnInitSegment);
+    std::cout << "\t\t\t\tHay %d bytes desde el uninit segment\n" << bytesFromUnInitSegment << std::endl;
+}
+
+int AddrSpace::pageFaultHandler(int vpn) {
     int pa = -1;
     // Error over the number of pages
     if (vpn < 0 || static_cast<unsigned int>(vpn) >= numPages) {
+        std::cout << "Error: vpn is out of range" << std::endl;
         return -1;
     }
 
-    // FOUND IN THE PAGE TABLE
+    // !FOUND IN THE PAGE TABLE // *COMPLETE
     if (pageTable[vpn].valid) { // !Is inside the main memory
-        this->tlb[tlbCounter % TLBSize].virtualPage = pageTable[vpn].virtualPage;
-        this->tlb[tlbCounter % TLBSize].physicalPage = pageTable[vpn].physicalPage;
-        this->tlb[tlbCounter % TLBSize].valid = true;
-        this->tlbCounter++;
+        this->updateTLB(vpn);
         pa = pageTable[vpn].physicalPage;
         return pa;
     }
 
-    // TODO:
-
     // Ask if there is a free frame
     int frame = memoryMap->Find();
 
+    // *COMPLETE
     // !THERE IS A FREE FRAME AND IS NOT IN THE SWAP MEMORY
     if (frame != -1 && pageTable[vpn].physicalPage == -1) { // Find free memory and the page is not in the swap memory
-        pa = frame;
-        pageTable[vpn].physicalPage = frame;
+        this->writeInMemory(vpn, frame);
         // Update the page table and the tlb
-        pageTable[vpn].valid = true; // The page is in memory
-        pageTable[vpn].use = true; // The page has been used
-
-        // Update the tlb
-        this->tlb[tlbCounter%TLBSize].virtualPage = pageTable[vpn].virtualPage;
-        this->tlb[tlbCounter%TLBSize].physicalPage = pageTable[vpn].physicalPage;
-        this->tlb[tlbCounter%TLBSize].valid = true; // The page is in memory
-        this->tlbCounter++;
-        return pa;
+        this->updatePT(vpn, frame);
+        this->updateTLB(vpn);
+        return frame;
     }
 
     // !THERE IS A FREE FRAME BUT INSIDE THE SWAP MEMORY
     if (frame != -1 && pageTable[vpn].physicalPage != -1) { // Find free memory and the page is in the swap memory
-        pa = frame;
-        pageTable[vpn].physicalPage = frame;
-        // Update the page table and the tlb
-        pageTable[vpn].valid = true; // The page is in memory
-        pageTable[vpn].use = true; // The page has been used
+        this->swap->movePageToMainMemory(vpn, frame);
 
-        // Update the tlb
-        this->tlb[tlbCounter%TLBSize].virtualPage = pageTable[vpn].virtualPage;
-        this->tlb[tlbCounter%TLBSize].physicalPage = pageTable[vpn].physicalPage;
-        this->tlb[tlbCounter%TLBSize].valid = true; // The page is in memory
-        this->tlbCounter++;
-        return pa;
+        // Update the page table and the tlb
+        // this->updatePT(vpn, frame); !THE SWAP DOES IT
+        this->updateTLB(vpn);
+        return frame;
     }
+
     // We need to swap
     // !NO FREE FRAMES AND THE PAGE IS IN THE SWAP MEMORY
-    if (frame == -1 && pageTable[vpn].physicalPage != -1) { // !NO FREE FRAMES AND THE PAGE IS IN THE SWAP MEMORY
-        if (frame == -1 && pageTable[vpn].physicalPage != -1) { // !NO FREE FRAMES AND THE PAGE IS IN THE SWAP MEMORY
-            // find page to put in swap (victim)
-            // int virtualToSwap = swap->findPageToSwap();
-            // Save page in memory to place new Page
-            // int tempMemPage = this->pageTable[virtualToSwap].physicalPage;
-            // if (this->pageTable[virtualToSwap].dirty) {
-                // swap->movePageToSwap(virtualToSwap, tempMemPage);
-            // }
-            // Load new page in memory
-            // this->pageTable[vpn].physicalPage = tempMemPage;
+    if (frame == -1 && pageTable[vpn].physicalPage != -1) { // *COMPLETE
+        // find page to put in swap (victim)
+        int virtualPage = swap->findPageToSwap();
+
+        // If is not dirty, just update the page table and the tlb
+        if (!pageTable[virtualPage].dirty) {
+            // Write in the main memory the vpn
+            this->swap->movePageToMainMemory(vpn, pageTable[virtualPage].physicalPage);
+            this->updateTLB(vpn);
+
+            // Update swapping page table
+            this->pageTable[virtualPage].physicalPage = -1;
+            this->pageTable[virtualPage].valid = false;
+            this->pageTable[virtualPage].dirty = false;
+            return pageTable[vpn].physicalPage;
         }
+
+        // If is dirty, move the page to the swap and update the page table and the tlb
+        int newPhysicalPage = pageTable[virtualPage].physicalPage;
+        this->swap->movePageToSwap(virtualPage, pageTable[virtualPage].physicalPage);
+
+        // Write in the main memory the 
+        this->swap->movePageToMainMemory(vpn, newPhysicalPage);
+        this->updateTLB(vpn);
     }
 
     // !NO FREE FRAMES AND THE PAGE IS NOT IN THE SWAP MEMORY
     if (frame == -1 && pageTable[vpn].physicalPage == -1) { // !NO FREE FRAMES AND THE PAGE IS NOT IN THE SWAP MEMORY
+        // find page to put in swap (victim)
+        int virtualPage = swap->findPageToSwap();
 
+        // If is not dirty, just update the page table and the tlb
+        if (!pageTable[virtualPage].dirty) {
+            // Write in the main memory the vpn
+            this->writeInMemory(vpn, pageTable[virtualPage].physicalPage);
+            this->updateTLB(vpn);
+            this->updatePT(vpn, pageTable[virtualPage].physicalPage);
+
+            // Update old page table
+            this->pageTable[virtualPage].physicalPage = -1;
+            this->pageTable[virtualPage].valid = false;
+            this->pageTable[virtualPage].dirty = false;
+            return pageTable[vpn].physicalPage;
+        }
+
+        // If is dirty, move the page to the swap and update the page table and the tlb
+        int newPhysicalPage = pageTable[virtualPage].physicalPage;
+        this->swap->movePageToSwap(virtualPage, pageTable[virtualPage].physicalPage);
+
+        // Write in the main memory the
+        this->writeInMemory(vpn, newPhysicalPage);
+        this->updateTLB(vpn);
+        this->updatePT(vpn, newPhysicalPage);
     }
 
     return pa;

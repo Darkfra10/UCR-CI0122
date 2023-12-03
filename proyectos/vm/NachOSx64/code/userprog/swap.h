@@ -4,10 +4,11 @@
 #include "openfile.h"
 #include "bitmap.h"
 #include "addrspace.h"
-
+#include "machine.h"
+class Machine;
 class Swap {
   public:
-    Swap(/* args */);
+    Swap(int size);
     ~Swap();
 
     // int findFreePage(); // 
@@ -24,11 +25,12 @@ class Swap {
 
 
 
-    int size = 0; // Number of pages the swap can hold. Is double the number of physical pages
-    int oldPage = 0; // The page that will be replaced in the swap
+    int size; // Number of pages the swap can hold. Is double the number of physical pages
+    int oldPage; // The page that will be replaced in the swap
     OpenFile* swapFile = NULL;
     BitMap* swapMap = NULL;
     AddrSpace* space = NULL;
+    Machine* machine = NULL;
 
 };
 

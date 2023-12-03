@@ -914,14 +914,14 @@ ExceptionHandler(ExceptionType which)
 
       case PageFaultException: {
         AddrSpace *space = currentThread->space; // Exist 
+        ++stats->numPageFaults;
 
-        std::cout << "PageFaultException" << std::endl;
         int virtualAdress = machine->ReadRegister( BadVAddrReg );
-        std::cout << "Virtual Address: " << virtualAdress << std::endl;
-
-        // !1 Find if in pageTable
-
-        // unsigned int paginaSolicitada = (unsigned) virtualAdress / PageSize;
+        int fail = space->pageFaultHandler(virtualAdress / PageSize);
+        if (fail == -1) {
+          std::cout << "PageFaultException: No hay espacio en memoria" << std::endl;
+          ASSERT(false);
+        }
         break;
       }
 

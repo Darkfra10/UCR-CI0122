@@ -16,9 +16,12 @@
 #include "copyright.h"
 #include "filesys.h"
 #include "translate.h" // TranslationEntry
+#include "noff.h" // NoffHeader
+#include "swap.h" // Swap
 
 #define UserStackSize		1024 	// increase this as necessary!
 
+class Swap;
 class AddrSpace {
   public:
     AddrSpace(OpenFile *executable);	// Create an address space,
@@ -45,7 +48,19 @@ class AddrSpace {
      * @param vaddr The virtual address
      * @return The physical address or -1 if the page is not in memory
     */
-    int getPA(int vpn);
+    int pageFaultHandler(int vpn);
+
+    void updateTLB(int vpn);
+    void updatePT(int virtualPage, int physicalPage);
+
+    void writeInMemory(int vpn, int frame);
+
+    // Getters pageTable and the tlb and the numPages
+    TranslationEntry* getPageTable();
+    TranslationEntry* getTLB();
+    unsigned int getNumPages();
+    Swap* swap;
+
   private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
@@ -54,6 +69,8 @@ class AddrSpace {
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
 
+    OpenFile* executable;
+    NoffHeader noffH;
 };
 
 #endif // ADDRSPACE_H
