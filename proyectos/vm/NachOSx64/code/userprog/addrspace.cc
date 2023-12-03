@@ -202,7 +202,9 @@ AddrSpace::~AddrSpace()
 {
     // Clear the memory map
     for (unsigned int page = 0; page < this->numPages; page++) {
-        memoryMap->Clear(this->pageTable[page].physicalPage);
+        if (pageTable[page].physicalPage != -1) {
+            memoryMap->Clear(this->pageTable[page].physicalPage);
+        }
     }
     delete pageTable;
 }
